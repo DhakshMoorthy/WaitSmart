@@ -1,0 +1,18 @@
+{
+  "name": "waitsmart",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:server": "pnpm --filter @waitsmart/server dev",
+    "dev:admin": "pnpm --filter @waitsmart/admin dev",
+    "dev:superadmin": "pnpm --filter @waitsmart/superadmin dev",
+    "dev:mobile": "pnpm --filter @waitsmart/mobile start",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @waitsmart/server db:generate",
+    "db:migrate": "pnpm --filter @waitsmart/server db:migrate",
+    "db:seed": "pnpm --filter @waitsmart/server db:seed"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

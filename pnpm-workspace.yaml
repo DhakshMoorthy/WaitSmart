@@ -1,0 +1,14 @@
+packages:
+  - "server"
+  - "admin"
+  - "superadmin"
+  - "mobile"
+  - "web"
+  - "packages/*"
+allowBuilds:
+  esbuild: true
+  protobufjs: true
+  sharp: true
+onlyBuiltDependencies:
+  - esbuild
+  - protobufjs
