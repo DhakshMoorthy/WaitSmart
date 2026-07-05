@@ -36,12 +36,12 @@ export async function sendOtp(phone: string) {
 
   await sendSms({ to: phone, message: `Your WaitSmart OTP is: ${otp}. Valid for 5 minutes.` });
 
-  // In local/dev, no real SMS is sent — return the OTP so the UI can show it.
-  const isDev = process.env.NODE_ENV !== "production";
+  // Return OTP in response when no SMS provider is configured (OTP can't reach user otherwise)
+  const smsConfigured = !!(process.env.SMS_PROVIDER && process.env.SMS_API_KEY);
   return {
     message: "OTP sent successfully",
     expiresInSeconds: OTP_TTL_SECONDS,
-    ...(isDev ? { devOtp: otp } : {}),
+    ...(!smsConfigured ? { devOtp: otp } : {}),
   };
 }
 

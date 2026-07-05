@@ -33,7 +33,7 @@ services:
       - key: JWT_REFRESH_TTL
         value: "30d"
       - key: CORS_ORIGINS
-        value: "https://waitsmart.vercel.app,http://localhost:3000"
+        value: "https://wait-smart-admin.vercel.app,http://localhost:3000"
     healthCheckPath: /health
 
   - type: keyvalue
