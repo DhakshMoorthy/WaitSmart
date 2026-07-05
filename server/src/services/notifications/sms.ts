@@ -9,8 +9,9 @@ export interface SmsPayload {
 export async function sendSms(payload: SmsPayload): Promise<boolean> {
   const provider = env.SMS_PROVIDER;
   const apiKey = env.SMS_API_KEY;
+  const senderId = env.SMS_SENDER_ID;
 
-  if (!provider || !apiKey) {
+  if (!provider || !apiKey || !senderId) {
     logger.info(`[SMS-DEV] To: ${payload.to} | ${payload.message}`);
     return false;
   }
@@ -18,10 +19,10 @@ export async function sendSms(payload: SmsPayload): Promise<boolean> {
   try {
     if (provider === "twilio") {
       const twilio = await import("twilio");
-      const client = twilio.default(apiKey, env.SMS_SENDER_ID);
+      const client = twilio.default(apiKey, senderId);
       await client.messages.create({
         body: payload.message,
-        from: env.SMS_SENDER_ID,
+        from: senderId,
         to: payload.to,
       });
     } else {
