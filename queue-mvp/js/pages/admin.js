@@ -1,28 +1,46 @@
-import { getAllDoctors, getClinics, subscribeToQueue, nextPatient, skipPatient, markNoShow, getDoctorSlotDuration } from "../db.js";
+import {
+  getAllDoctors,
+  getClinics,
+  subscribeToDoctorDay,
+  nextPatient,
+  skipPatient,
+  markNoShow,
+  resetQueue,
+} from "../db.js";
 import { replace } from "../router.js";
-import { renderShell, clearAdminAuth } from "../layout.js";
+import { renderShell, clearAdminAuth, escapeHtml } from "../layout.js";
+import { getDateOptions, formatDisplayDate, todayStr, formatTime12 } from "../utils/dates.js";
 
 export function renderAdminDashboard(root) {
-  let selectedDoctorId = null;
+  let doctorId = "";
+  let date = todayStr();
   let unsub = null;
 
   renderShell(root, {
-    showBack: true,
-    title: "Doctor Dashboard",
-    subtitle: "Manage live queue",
-    footer: false,
+    showHeader: true,
+    showAdminLink: false,
+    adminMode: true,
     content: `
-      <div class="page-content">
-        <div class="form-group">
-          <label for="doctor-select">Select Doctor</label>
-          <select id="doctor-select" class="select">
-            <option value="">Loading doctors...</option>
-          </select>
+      <div class="admin-top">
+        <div>
+          <p class="eyebrow">ADMIN DASHBOARD</p>
+          <h1 class="page-title">Slot control</h1>
         </div>
-        <div id="dashboard">
-          <div class="empty-state"><p>Select a doctor to view queue</p></div>
+        <button class="btn btn-ghost btn-sm" id="logout-btn">↪ Logout</button>
+      </div>
+      <div class="page-content admin-content">
+        <div class="admin-select-card">
+          <div class="form-group">
+            <label class="field-label">DOCTOR</label>
+            <select id="doctor-select" class="select"></select>
+          </div>
+          <div class="form-group">
+            <label class="field-label">DATE</label>
+            <select id="date-select" class="select"></select>
+          </div>
+          <div class="sync-status"><span class="live-dot"></span> Live sync active</div>
         </div>
-        <button class="btn btn-ghost btn-block mt-20" id="logout-btn">Sign out</button>
+        <div id="dashboard"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     `,
   });
@@ -30,96 +48,146 @@ export function renderAdminDashboard(root) {
   root.querySelector("#logout-btn").addEventListener("click", () => {
     if (unsub) unsub();
     clearAdminAuth();
-    import("./admin-login.js").then((m) => m.renderAdminLogin(root));
+    replace("/admin");
   });
 
-  const selectEl = root.querySelector("#doctor-select");
-  const dashboardEl = root.querySelector("#dashboard");
+  const doctorSelect = root.querySelector("#doctor-select");
+  const dateSelect = root.querySelector("#date-select");
+  const dashboard = root.querySelector("#dashboard");
 
   Promise.all([getAllDoctors(), getClinics()]).then(([doctors, clinics]) => {
-    const clinicMap = Object.fromEntries(clinics.map((c) => [c.id, c.branch || c.name]));
+    const clinicMap = Object.fromEntries(clinics.map((c) => [c.id, c.branch]));
+    doctorSelect.innerHTML = doctors
+      .map(
+        (d) =>
+          `<option value="${d.id}">${escapeHtml(d.name)} — ${escapeHtml(d.specialization)} (${escapeHtml(clinicMap[d.clinic_id] || "")})</option>`,
+      )
+      .join("");
 
-    selectEl.innerHTML =
-      `<option value="">— Choose a doctor —</option>` +
-      doctors
-        .map(
-          (d) =>
-            `<option value="${d.id}">${d.name} (${clinicMap[d.clinic_id] || "Branch"})</option>`,
-        )
-        .join("");
+    dateSelect.innerHTML = getDateOptions(7)
+      .map((d) => `<option value="${d.value}">${escapeHtml(d.label)}</option>`)
+      .join("");
 
-    if (doctors.length === 1) {
-      selectEl.value = doctors[0].id;
-      selectEl.dispatchEvent(new Event("change"));
-    }
+    doctorId = doctors[0]?.id || "";
+    bindSubscription();
   });
 
-  selectEl.addEventListener("change", () => {
+  doctorSelect.addEventListener("change", () => {
+    doctorId = doctorSelect.value;
+    bindSubscription();
+  });
+
+  dateSelect.addEventListener("change", () => {
+    date = dateSelect.value;
+    bindSubscription();
+  });
+
+  function bindSubscription() {
     if (unsub) unsub();
-    selectedDoctorId = selectEl.value;
-
-    if (!selectedDoctorId) {
-      dashboardEl.innerHTML = `<div class="empty-state"><p>Select a doctor to view queue</p></div>`;
-      return;
-    }
-
-    unsub = subscribeToQueue(selectedDoctorId, ({ queue, waiting }) => {
-      renderDashboard(dashboardEl, queue, waiting || [], selectedDoctorId);
+    if (!doctorId) return;
+    unsub = subscribeToDoctorDay(doctorId, date, ({ queue, appointments, stats, duration }) => {
+      renderDashboard(dashboard, queue, appointments, stats, duration);
     });
-  });
+  }
 
-  async function renderDashboard(el, queue, waiting, doctorId) {
-    const currentToken = queue?.current_token ?? 0;
-    const lastToken = queue?.last_token ?? 0;
-    const slotMins = await getDoctorSlotDuration(doctorId);
+  function renderDashboard(el, queue, appointments, stats, duration) {
+    const current = stats.nowServing;
+    const inCabin = stats.inCabin;
 
     el.innerHTML = `
-      <div class="serving-card">
-        <div class="serving-label">Now Serving Token</div>
-        <div class="serving-number">${currentToken > 0 ? currentToken : "—"}</div>
-        <div class="serving-meta">${waiting.length} waiting · ${lastToken} total issued · ${slotMins} min/slot</div>
+      <div class="stats-row-admin">
+        <div class="stat-box">
+          <div class="stat-label">NOW SERVING</div>
+          <div class="stat-value">${current ?? "—"}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">BOOKED SLOTS</div>
+          <div class="stat-value">${stats.booked}</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">WAITING</div>
+          <div class="stat-value">${stats.waiting}</div>
+        </div>
       </div>
 
-      <div class="action-row">
-        <button class="btn btn-primary btn-block" id="next-btn">Next Patient</button>
-      </div>
-      <div class="action-row two-col">
-        <button class="btn btn-outline" id="skip-btn">Skip Patient</button>
-        <button class="btn btn-ghost" id="noshow-btn">Mark No Show</button>
-      </div>
-
-      <h3 class="section-title">Waiting Patients (${waiting.length})</h3>
-      <div id="waiting-list">
-        ${waiting.length === 0
-          ? `<div class="empty-queue">No patients waiting</div>`
-          : waiting
-              .map(
-                (p) => `
-          <div class="wait-card ${p.token === currentToken + 1 ? "next-up" : ""}">
-            <div class="wait-token">#${p.token}</div>
-            <div class="wait-info">
-              <div class="wait-name">${escapeHtml(p.name)}</div>
-              ${p.notes ? `<div class="wait-notes">${escapeHtml(p.notes)}</div>` : ""}
+      <div class="cabin-card">
+        <div class="cabin-header">
+          <span>Currently in Cabin</span>
+          <span class="pulse-icon blue">〰</span>
+        </div>
+        ${
+          inCabin
+            ? `
+          <div class="cabin-patient">
+            <div class="cabin-token">#${inCabin.token}</div>
+            <div>
+              <div class="cabin-name">${escapeHtml(inCabin.name)}</div>
+              <div class="cabin-slot">${formatTime12(inCabin.slot_time)} · Slot #${inCabin.slot_index}</div>
+              ${inCabin.notes ? `<div class="cabin-notes">${escapeHtml(inCabin.notes)}</div>` : ""}
             </div>
-            ${p.token === currentToken + 1 ? `<span class="badge badge-next">Up next</span>` : ""}
-          </div>
-        `,
-              )
-              .join("")}
+          </div>`
+            : `<p class="cabin-empty">No slot active. Press <strong>Next</strong> to begin the next booked slot.</p>`
+        }
+
+        <div class="admin-actions">
+          <button class="btn btn-primary admin-action-btn" id="next-btn">
+            <span>→</span> Next
+          </button>
+          <button class="btn btn-skip admin-action-btn" id="skip-btn">
+            <span>⏭</span> Skip
+          </button>
+          <button class="btn btn-noshow admin-action-btn" id="noshow-btn">
+            <span>✕</span> No Show
+          </button>
+        </div>
+
+        <button class="reset-link" id="reset-btn">↻ Reset queue (admin)</button>
+      </div>
+
+      <div class="bookings-section">
+        <div class="section-head">
+          <h2>Bookings — ${formatDisplayDate(date).split("(")[0].trim()}</h2>
+          <span class="count-badge">${stats.booked} booked</span>
+        </div>
+        <div class="bookings-list">
+          ${
+            appointments.filter((a) => a.status !== "cancelled").length === 0
+              ? `<div class="empty-bookings"><div class="empty-icon">📅</div><p>No bookings yet for this doctor.</p></div>`
+              : appointments
+                  .filter((a) => a.status !== "cancelled")
+                  .map(
+                    (a) => `
+              <div class="booking-row status-${a.status}">
+                <div class="booking-time">${formatTime12(a.slot_time)}</div>
+                <div class="booking-info">
+                  <div class="booking-name">${escapeHtml(a.name)}</div>
+                  <div class="booking-meta">Token #${a.token} · Slot #${a.slot_index}</div>
+                </div>
+                <span class="status-chip ${a.status}">${a.status.replace("_", " ")}</span>
+              </div>`,
+                  )
+                  .join("")
+          }
+        </div>
       </div>
     `;
 
-    bindAction(el.querySelector("#next-btn"), () => nextPatient(doctorId));
-    bindAction(el.querySelector("#skip-btn"), () => skipPatient(doctorId));
-    bindAction(el.querySelector("#noshow-btn"), () => markNoShow(doctorId));
+    bindBtn(el.querySelector("#next-btn"), () => nextPatient(doctorId, date));
+    bindBtn(el.querySelector("#skip-btn"), () => skipPatient(doctorId, date));
+    bindBtn(el.querySelector("#noshow-btn"), () => markNoShow(doctorId, date));
+    el.querySelector("#reset-btn")?.addEventListener("click", () => {
+      if (confirm("Reset today's queue? This cancels waiting bookings.")) {
+        resetQueue(doctorId, date);
+      }
+    });
   }
 
-  async function bindAction(btn, actionFn) {
+  function bindBtn(btn, fn) {
     if (!btn) return;
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       try {
-        await actionFn();
+        await fn();
       } catch (err) {
         alert(err.message || "Action failed");
       } finally {
@@ -127,12 +195,4 @@ export function renderAdminDashboard(root) {
       }
     });
   }
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

@@ -1,52 +1,54 @@
-# KVT Hospital — Live Queue MVP
+# KVT Hospital — Live Queue
 
-Mobile-first hospital queue system for **KVT Hospital** with real-time token tracking.
+Production-ready hospital queue & appointment system. Mobile-first, real-time, deployable.
 
-## Branches
+## Features
+
+- **Patient app** — clinic cards, doctor profiles, 30-min slot booking, live token tracking
+- **Admin dashboard** — passcode protected (`4321`), slot control, queue management
+- **Real-time sync** — live updates across patient & admin tabs (WebSocket-style via BroadcastChannel + polling)
+- **Per-day queues** — separate queue state per doctor per date
+- **KVT branding** — professional blue medical UI
+
+## Branches & Doctors
 
 | Branch | Doctors |
 |--------|---------|
-| **Moolakadai** | Dr. Hari Prasad (General Medicine, 30 min slots) |
-| **Erukenchery** | — (no doctors yet) |
+| **Moolakadai** | Dr. Karthik Iyer (General Physician), Dr. Vandana Rao (Pediatrician) |
+| **Erukenchery** | Dr. Hari Prasad (General Medicine) |
 
-**Hours:** 9 AM – 2 PM, 4 PM – 6 PM
+**Hours:** 9 AM – 2 PM, 4 PM – 6 PM · **Slots:** 30 minutes
 
-## Quick start
+## Run locally
 
 ```bash
-cd queue-mvp
 pnpm install
-pnpm dev
+pnpm dev:mvp
 ```
 
-Open http://localhost:5173
-
-### Patient flow
-1. Home → pick **Moolakadai** branch
-2. Select **Dr. Hari Prasad**
-3. Enter name → get token
-4. Watch live queue (30 min estimated wait per patient ahead)
-
-### Admin dashboard
-- URL: http://localhost:5173/admin
-- Passcode: **4321**
-- Manage Dr. Hari Prasad's queue: Next / Skip / No Show
+- Patient: http://localhost:5173
+- Admin: http://localhost:5173/admin (passcode: **4321**)
 
 ## Deploy
 
 ```bash
-pnpm build
-# Deploy dist/ to Vercel, Firebase Hosting, or Emergent
+cd queue-mvp && pnpm build
 ```
 
-Ensure SPA rewrites are enabled so `/admin` routes correctly.
+Deploy `dist/` to Vercel, Firebase Hosting, or Emergent. Enable SPA rewrites for `/admin`.
 
-## Firebase (optional)
+## Firebase (production)
 
-Copy `.env.example` → `.env`, then:
+1. Copy `.env.example` → `.env`
+2. `pnpm seed` — seeds KVT data
+3. Deploy Firestore rules + indexes
 
-```bash
-pnpm seed   # seeds KVT branches + Dr. Hari Prasad
-```
+Without Firebase, runs in local demo mode (browser storage, auto-seeded).
 
-Without Firebase, demo mode uses browser localStorage (auto-seeded on first visit).
+## Admin capabilities
+
+- Select doctor & date
+- View Now Serving / Booked / Waiting stats
+- Next · Skip · No Show
+- Reset queue
+- Full bookings list with status chips

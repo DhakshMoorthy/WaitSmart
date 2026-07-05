@@ -1,33 +1,88 @@
-import { getClinics } from "../db.js";
+import {
+  getClinics,
+  getAppointment,
+  getDoctor,
+  subscribeToAppointment,
+  calcWaitMinutes,
+} from "../db.js";
 import { navigate } from "../router.js";
-import { renderShell, HOSPITAL_NAME } from "../layout.js";
+import { renderShell, escapeHtml } from "../layout.js";
+import { getActiveTokenIds } from "../utils/active-tokens.js";
+import { formatTime12, formatShortDate } from "../utils/dates.js";
 
 export function renderHome(root) {
   renderShell(root, {
+    footer: true,
     content: `
-      <div class="hero">
-        <div class="hero-badge">Skip the wait</div>
-        <h1>Book a token,<br>track your turn live.</h1>
-        <p class="hero-sub">Real-time queue updates from ${HOSPITAL_NAME}. No login, no hassle — just walk in when it's your turn.</p>
+      <div class="hero-block">
+        <span class="hero-badge">Skip the wait</span>
+        <h1 class="hero-title">Book a token,<br>track your turn live.</h1>
+        <p class="hero-desc">Real-time queue updates from KVT Hospital. No login, no hassle — just walk in when it's your turn.</p>
         <div class="hero-pills">
           <span class="pill">9 AM – 2 PM</span>
           <span class="pill">4 PM – 6 PM</span>
         </div>
       </div>
-
       <div class="page-content">
+        <div id="active-section"></div>
         <div class="section-head">
           <h2>Choose a clinic</h2>
-          <p class="subtitle" id="clinic-count">Loading...</p>
+          <span class="count-badge" id="clinic-count">…</span>
         </div>
-        <div id="clinic-list">
-          <div class="loading"><div class="spinner"></div></div>
-        </div>
+        <div id="clinic-list"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     `,
   });
 
+  loadActiveTokens(root);
   loadClinics(root);
+}
+
+async function loadActiveTokens(root) {
+  const section = root.querySelector("#active-section");
+  const ids = getActiveTokenIds();
+  if (ids.length === 0) {
+    section.innerHTML = "";
+    return;
+  }
+
+  const cards = await Promise.all(
+    ids.map(async (id) => {
+      const appt = await getAppointment(id);
+      if (!appt || ["done", "cancelled", "skipped", "no_show"].includes(appt.status)) return null;
+      const doctor = await getDoctor(appt.doctor_id);
+      return { appt, doctor };
+    }),
+  );
+
+  const valid = cards.filter(Boolean);
+  if (valid.length === 0) {
+    section.innerHTML = "";
+    return;
+  }
+
+  section.innerHTML = `
+    <div class="section-head"><h2>Your active tokens</h2></div>
+    ${valid
+      .map(
+        ({ appt, doctor }) => `
+      <div class="active-token-card clickable" data-id="${appt.id}">
+        <div class="token-icon">🎫</div>
+        <div class="token-info">
+          <div class="token-label">TOKEN</div>
+          <div class="token-num">#${appt.token}</div>
+          <div class="token-doctor">${escapeHtml(doctor?.name || "Doctor")}</div>
+          <div class="token-patient">for ${escapeHtml(appt.name)}</div>
+        </div>
+      </div>
+    `,
+      )
+      .join("")}
+  `;
+
+  section.querySelectorAll(".active-token-card").forEach((card) => {
+    card.addEventListener("click", () => navigate("/token", { appointmentId: card.dataset.id }));
+  });
 }
 
 async function loadClinics(root) {
@@ -38,33 +93,36 @@ async function loadClinics(root) {
     const clinics = await getClinics();
     countEl.textContent = `${clinics.length} available`;
 
-    if (clinics.length === 0) {
-      listEl.innerHTML = `<div class="empty-state"><div class="icon">🏥</div><h3>No clinics found</h3></div>`;
-      return;
-    }
-
     listEl.innerHTML = clinics
       .map(
         (c) => `
-      <div class="card clinic-card clickable" data-id="${c.id}" data-name="${c.name}">
-        <div class="clinic-icon">🏥</div>
-        <div class="clinic-info">
-          <div class="clinic-name">${c.name}</div>
-          ${c.address ? `<div class="clinic-meta">${c.address}</div>` : ""}
-          ${c.hours ? `<div class="clinic-hours">🕐 ${c.hours}</div>` : ""}
+      <div class="clinic-image-card clickable" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+        <div class="clinic-img" style="background-image:url('${c.image_url || ""}')">
+          <div class="clinic-img-overlay">
+            <span class="clinic-tag">KVT HOSPITAL</span>
+            <span class="clinic-branch">${escapeHtml(c.branch)}</span>
+          </div>
         </div>
-        <div class="card-arrow">›</div>
+        <div class="clinic-card-body">
+          <div class="clinic-meta-row">
+            <span>📍 ${escapeHtml(c.address)}</span>
+          </div>
+          <div class="clinic-meta-row">
+            <span>🕐 ${escapeHtml(c.hours)}</span>
+          </div>
+          <button class="clinic-go-btn" aria-label="Select clinic">→</button>
+        </div>
       </div>
     `,
       )
       .join("");
 
-    listEl.querySelectorAll(".clinic-card").forEach((card) => {
+    listEl.querySelectorAll(".clinic-image-card").forEach((card) => {
       card.addEventListener("click", () => {
         navigate("/doctors", { clinicId: card.dataset.id, clinicName: card.dataset.name });
       });
     });
   } catch (err) {
-    listEl.innerHTML = `<div class="empty-state"><h3>Failed to load</h3><p>${err.message}</p></div>`;
+    listEl.innerHTML = `<div class="empty-state"><p>${escapeHtml(err.message)}</p></div>`;
   }
 }
