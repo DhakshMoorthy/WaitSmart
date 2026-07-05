@@ -8,7 +8,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: pnpm install && pnpm --filter @waitsmart/shared build && pnpm --filter @waitsmart/server build
+    buildCommand: corepack enable && pnpm install --filter @waitsmart/server... && pnpm run build:deploy
     startCommand: node server/dist/server.js
     envVars:
       - key: NODE_ENV
