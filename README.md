@@ -44,6 +44,7 @@ cp server/.env.example server/.env
 pnpm db:generate
 pnpm db:migrate
 pnpm dev:server    # API on :4000
+pnpm dev:mvp       # Queue MVP on :5173 (no backend needed)
 pnpm dev:mobile     # Expo on :8081
 pnpm dev:admin      # Admin on :3000
 pnpm dev:superadmin # Super Admin on :3001
