@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview --port 5173",
     "start": "vite --port 5173 --open",
+    "serve": "pnpm build && npx --yes serve dist -s -l 8080",
     "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
