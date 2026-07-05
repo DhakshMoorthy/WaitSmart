@@ -1,27 +1,17 @@
-# WaitSmart Queue MVP
+# KVT Hospital — Live Queue MVP
 
-A mobile-first hospital queue and appointment system focused on reducing patient waiting time. Patients get a token instantly (no login), track live queue movement, and doctors control the flow from a simple dashboard.
+Mobile-first hospital queue system for **KVT Hospital** with real-time token tracking.
 
-## Features
+## Branches
 
-**Patient (no login)**
-- Browse clinics and doctors (card UI)
-- Enter name + optional symptoms → auto token assignment
-- Live view: Your Token, Now Serving, Estimated Wait Time
-- Real-time updates when the doctor advances the queue
+| Branch | Doctors |
+|--------|---------|
+| **Moolakadai** | Dr. Hari Prasad (General Medicine, 30 min slots) |
+| **Erukenchery** | — (no doctors yet) |
 
-**Admin / Doctor Dashboard**
-- Select doctor from dropdown
-- See current token and waiting patients
-- Next Patient · Skip Patient · Mark No Show
+**Hours:** 9 AM – 2 PM, 4 PM – 6 PM
 
-**Queue logic**
-- Per-doctor queue with `current_token` and `last_token`
-- Wait time = `(your_token - current_token) × 5 minutes`
-
-## Quick start (demo mode)
-
-No Firebase required — uses browser localStorage with cross-tab sync:
+## Quick start
 
 ```bash
 cd queue-mvp
@@ -31,50 +21,32 @@ pnpm dev
 
 Open http://localhost:5173
 
-1. Click **Get Token Now** → pick clinic → doctor → enter name → submit
-2. Open **Doctor / Admin Dashboard** in another tab → select same doctor → **Next Patient**
-3. Watch the patient token screen update live
+### Patient flow
+1. Home → pick **Moolakadai** branch
+2. Select **Dr. Hari Prasad**
+3. Enter name → get token
+4. Watch live queue (30 min estimated wait per patient ahead)
 
-## Firebase setup (production)
+### Admin dashboard
+- URL: http://localhost:5173/admin
+- Passcode: **4321**
+- Manage Dr. Hari Prasad's queue: Next / Skip / No Show
 
-1. Create a [Firebase project](https://console.firebase.google.com/)
-2. Enable Firestore
-3. Copy `.env.example` → `.env` and fill in your Firebase web config
-4. Deploy rules: `firebase deploy --only firestore:rules`
-5. Seed data:
-   ```bash
-   export FIREBASE_PROJECT_ID=your-project-id
-   export GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json
-   pnpm seed
-   ```
-6. Create composite index: `appointments` → `doctor_id` + `status` + `token`
-7. Build & deploy:
-   ```bash
-   pnpm build
-   firebase deploy --only hosting
-   ```
+## Deploy
 
-## Seed data
-
-| Clinic | Doctors |
-|--------|---------|
-| City Care Hospital | Dr. Priya Sharma (General Medicine), Dr. Rahul Mehta (Pediatrics) |
-| Green Valley Clinic | Dr. Ananya Reddy (Dermatology) |
-
-## Data model (Firestore)
-
-```
-clinics     { id, name, address?, hours? }
-doctors     { id, name, clinic_id, specialization? }
-queues      { doctor_id, current_token, last_token }   // doc id = doctor_id
-appointments { name, doctor_id, token, status, notes, created_at }
+```bash
+pnpm build
+# Deploy dist/ to Vercel, Firebase Hosting, or Emergent
 ```
 
-Status values: `waiting` | `done` | `skipped` | `no_show`
+Ensure SPA rewrites are enabled so `/admin` routes correctly.
 
-## Tech stack
+## Firebase (optional)
 
-- Vite + vanilla JS (no framework overhead)
-- Firebase Firestore real-time listeners (`onSnapshot`)
-- Local demo fallback when Firebase is not configured
-- Mobile-first responsive design (Swiggy/Zomato-style cards)
+Copy `.env.example` → `.env`, then:
+
+```bash
+pnpm seed   # seeds KVT branches + Dr. Hari Prasad
+```
+
+Without Firebase, demo mode uses browser localStorage (auto-seeded on first visit).

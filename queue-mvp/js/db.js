@@ -35,7 +35,7 @@ if (isFirebaseConfigured) {
   db = getFirestore(app);
 }
 
-const STORAGE_KEY = "waitsmart-mvp-data";
+const STORAGE_KEY = "waitsmart-kvt-v1";
 const CHANNEL = "waitsmart-mvp-sync";
 
 function loadLocalData() {
@@ -66,21 +66,35 @@ function seedLocalIfEmpty() {
   const data = loadLocalData();
   if (data.clinics.length > 0) return data;
 
-  const clinic1 = { id: "clinic-1", name: "City Care Hospital", address: "MG Road, Bengaluru", hours: "9 AM – 2 PM • 4 PM – 6 PM" };
-  const clinic2 = { id: "clinic-2", name: "Green Valley Clinic", address: "Indiranagar, Bengaluru", hours: "9 AM – 2 PM • 4 PM – 6 PM" };
+  const clinic1 = {
+    id: "clinic-moolakadai",
+    name: "KVT Hospital — Moolakadai",
+    branch: "Moolakadai",
+    address: "Moolakadai, Chennai",
+    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+  };
+  const clinic2 = {
+    id: "clinic-erukenchery",
+    name: "KVT Hospital — Erukenchery",
+    branch: "Erukenchery",
+    address: "Erukenchery, Chennai",
+    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+  };
 
   const doctors = [
-    { id: "doc-1", name: "Dr. Priya Sharma", clinic_id: "clinic-1", specialization: "General Medicine" },
-    { id: "doc-2", name: "Dr. Rahul Mehta", clinic_id: "clinic-1", specialization: "Pediatrics" },
-    { id: "doc-3", name: "Dr. Ananya Reddy", clinic_id: "clinic-2", specialization: "Dermatology" },
+    {
+      id: "doc-hari-prasad",
+      name: "Dr. Hari Prasad",
+      clinic_id: "clinic-moolakadai",
+      specialization: "General Medicine",
+      slot_duration_minutes: 30,
+    },
   ];
 
   data.clinics = [clinic1, clinic2];
   data.doctors = doctors;
   data.queues = {
-    "doc-1": { doctor_id: "doc-1", current_token: 0, last_token: 0 },
-    "doc-2": { doctor_id: "doc-2", current_token: 0, last_token: 0 },
-    "doc-3": { doctor_id: "doc-3", current_token: 0, last_token: 0 },
+    "doc-hari-prasad": { doctor_id: "doc-hari-prasad", current_token: 0, last_token: 0 },
   };
   data.appointments = [];
   saveLocalData(data);
@@ -187,9 +201,14 @@ export async function getAllDoctors() {
   return loadLocalData().doctors;
 }
 
-export function calcWaitMinutes(patientToken, currentToken) {
+export function calcWaitMinutes(patientToken, currentToken, slotMinutes = 30) {
   const diff = Math.max(0, patientToken - currentToken);
-  return diff * 5;
+  return diff * slotMinutes;
+}
+
+export async function getDoctorSlotDuration(doctorId) {
+  const doctor = await getDoctor(doctorId);
+  return doctor?.slot_duration_minutes ?? 30;
 }
 
 export async function bookAppointment({ name, doctorId, notes }) {

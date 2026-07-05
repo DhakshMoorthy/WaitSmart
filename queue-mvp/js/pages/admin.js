@@ -1,26 +1,17 @@
-import {
-  getAllDoctors,
-  getClinics,
-  subscribeToQueue,
-  nextPatient,
-  skipPatient,
-  markNoShow,
-} from "../db.js";
-import { navigate, back } from "../router.js";
+import { getAllDoctors, getClinics, subscribeToQueue, nextPatient, skipPatient, markNoShow, getDoctorSlotDuration } from "../db.js";
+import { replace } from "../router.js";
+import { renderShell, clearAdminAuth } from "../layout.js";
 
-export function renderAdmin(root) {
+export function renderAdminDashboard(root) {
   let selectedDoctorId = null;
   let unsub = null;
 
-  root.innerHTML = `
-    <div class="page admin-page">
-      <div class="page-header">
-        <button class="back-btn" id="back-btn">←</button>
-        <div>
-          <h2>Doctor Dashboard</h2>
-          <p class="subtitle">Manage live queue</p>
-        </div>
-      </div>
+  renderShell(root, {
+    showBack: true,
+    title: "Doctor Dashboard",
+    subtitle: "Manage live queue",
+    footer: false,
+    content: `
       <div class="page-content">
         <div class="form-group">
           <label for="doctor-select">Select Doctor</label>
@@ -31,27 +22,29 @@ export function renderAdmin(root) {
         <div id="dashboard">
           <div class="empty-state"><p>Select a doctor to view queue</p></div>
         </div>
+        <button class="btn btn-ghost btn-block mt-20" id="logout-btn">Sign out</button>
       </div>
-    </div>
-  `;
+    `,
+  });
 
-  root.querySelector("#back-btn").addEventListener("click", () => {
+  root.querySelector("#logout-btn").addEventListener("click", () => {
     if (unsub) unsub();
-    back();
+    clearAdminAuth();
+    import("./admin-login.js").then((m) => m.renderAdminLogin(root));
   });
 
   const selectEl = root.querySelector("#doctor-select");
   const dashboardEl = root.querySelector("#dashboard");
 
   Promise.all([getAllDoctors(), getClinics()]).then(([doctors, clinics]) => {
-    const clinicMap = Object.fromEntries(clinics.map((c) => [c.id, c.name]));
+    const clinicMap = Object.fromEntries(clinics.map((c) => [c.id, c.branch || c.name]));
 
     selectEl.innerHTML =
       `<option value="">— Choose a doctor —</option>` +
       doctors
         .map(
           (d) =>
-            `<option value="${d.id}">${d.name} (${clinicMap[d.clinic_id] || "Clinic"})</option>`,
+            `<option value="${d.id}">${d.name} (${clinicMap[d.clinic_id] || "Branch"})</option>`,
         )
         .join("");
 
@@ -75,15 +68,16 @@ export function renderAdmin(root) {
     });
   });
 
-  function renderDashboard(el, queue, waiting, doctorId) {
+  async function renderDashboard(el, queue, waiting, doctorId) {
     const currentToken = queue?.current_token ?? 0;
     const lastToken = queue?.last_token ?? 0;
+    const slotMins = await getDoctorSlotDuration(doctorId);
 
     el.innerHTML = `
       <div class="serving-card">
         <div class="serving-label">Now Serving Token</div>
         <div class="serving-number">${currentToken > 0 ? currentToken : "—"}</div>
-        <div class="serving-meta">${waiting.length} waiting · ${lastToken} total issued</div>
+        <div class="serving-meta">${waiting.length} waiting · ${lastToken} total issued · ${slotMins} min/slot</div>
       </div>
 
       <div class="action-row">
@@ -104,8 +98,8 @@ export function renderAdmin(root) {
           <div class="wait-card ${p.token === currentToken + 1 ? "next-up" : ""}">
             <div class="wait-token">#${p.token}</div>
             <div class="wait-info">
-              <div class="wait-name">${p.name}</div>
-              ${p.notes ? `<div class="wait-notes">${p.notes}</div>` : ""}
+              <div class="wait-name">${escapeHtml(p.name)}</div>
+              ${p.notes ? `<div class="wait-notes">${escapeHtml(p.notes)}</div>` : ""}
             </div>
             ${p.token === currentToken + 1 ? `<span class="badge badge-next">Up next</span>` : ""}
           </div>
@@ -120,11 +114,12 @@ export function renderAdmin(root) {
     bindAction(el.querySelector("#noshow-btn"), () => markNoShow(doctorId));
   }
 
-  async function bindAction(btn, action) {
+  async function bindAction(btn, actionFn) {
+    if (!btn) return;
     btn.addEventListener("click", async () => {
       btn.disabled = true;
       try {
-        await action();
+        await actionFn();
       } catch (err) {
         alert(err.message || "Action failed");
       } finally {
@@ -132,4 +127,12 @@ export function renderAdmin(root) {
       }
     });
   }
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
