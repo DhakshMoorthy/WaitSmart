@@ -19,15 +19,18 @@ Production-ready hospital queue & appointment system. Mobile-first, real-time, d
 
 **Hours:** 9 AM – 2 PM, 4 PM – 6 PM · **Slots:** 30 minutes
 
-## Run locally
+## Run locally (your machine)
+
+From the repo root:
 
 ```bash
 pnpm install
-pnpm dev:mvp
+pnpm start:mvp
 ```
 
-- Patient: http://localhost:5173
-- Admin: http://localhost:5173/admin (passcode: **4321**)
+Browser opens at http://localhost:5173 automatically.
+
+- Admin: http://localhost:5173/admin — passcode **4321**
 
 ## Deploy
 
