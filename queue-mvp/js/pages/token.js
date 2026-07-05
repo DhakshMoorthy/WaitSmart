@@ -1,60 +1,19 @@
-import {
-  subscribeToAppointment,
-  calcWaitMinutes,
-  getDoctor,
-  getDoctorSlotDuration,
-} from "../db.js";
-import { replace, getParams } from "../router.js";
-import { renderShell } from "../layout.js";
+import { subscribeToAppointment, calcWaitMinutes, getDoctor } from "../db.js";
+import { replace, navigate, getParams } from "../router.js";
+import { renderShell, escapeHtml } from "../layout.js";
+import { formatTime12, formatShortDate } from "../utils/dates.js";
 
 export function renderToken(root) {
-  const { appointmentId, doctorName, doctorId } = getParams();
+  const { appointmentId } = getParams();
   let unsub = null;
-  let slotMinutes = 30;
 
   renderShell(root, {
-    footer: false,
-    content: `
-      <div class="page-content token-page">
-        <div class="success-icon">✅</div>
-        <h2>Token Confirmed!</h2>
-        <p class="subtitle" id="doctor-label">${doctorName || ""}</p>
-
-        <div class="token-display">
-          <div class="token-label">Your Token Number</div>
-          <div class="token-number" id="your-token">—</div>
-        </div>
-
-        <div class="live-card">
-          <div class="live-header">
-            <span class="live-dot"></span>
-            Live Queue Status
-          </div>
-          <div class="live-grid">
-            <div class="live-item serving">
-              <div class="live-item-label">Now Serving</div>
-              <div class="live-item-value" id="now-serving">—</div>
-            </div>
-            <div class="live-item wait">
-              <div class="live-item-label">Est. Wait Time</div>
-              <div class="live-item-value" id="wait-time">—</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="alert alert-turn" id="turn-alert" style="display:none;">
-          🎉 It's your turn! Please proceed to the doctor's cabin.
-        </div>
-
-        <div class="alert alert-done" id="done-alert" style="display:none;">
-          ✅ Your consultation is complete. Thank you!
-        </div>
-
-        <div class="position-info" id="position-info"></div>
-
-        <button class="btn btn-outline btn-block mt-20" id="home-btn">Back to Home</button>
-      </div>
-    `,
+    showBack: true,
+    content: `<div class="page-content" id="ticket-root"><div class="loading"><div class="spinner"></div></div></div>
+      <div class="ticket-footer">
+        <button class="btn btn-outline flex-1" id="refresh-btn">↻ Refresh</button>
+        <button class="btn btn-outline flex-1" id="home-btn">← Home</button>
+      </div>`,
   });
 
   root.querySelector("#home-btn").addEventListener("click", () => {
@@ -62,54 +21,83 @@ export function renderToken(root) {
     replace("/");
   });
 
-  if (doctorId) {
-    getDoctorSlotDuration(doctorId).then((m) => {
-      slotMinutes = m;
+  root.querySelector("#refresh-btn").addEventListener("click", () => {
+    /* onSnapshot handles live updates */
+  });
+
+  function renderTicket(data) {
+    const el = root.querySelector("#ticket-root");
+    if (!data?.appointment) {
+      el.innerHTML = `<div class="empty-state"><h3>Appointment not found</h3></div>`;
+      return;
+    }
+
+    const { appointment: appt, queue, duration } = data;
+    const current = queue?.current_token ?? 0;
+    const waitMin = calcWaitMinutes(appt.token, current, duration || 30);
+    const isTurn = appt.token <= current && current > 0 && appt.status === "waiting";
+    const isDone = appt.status === "done";
+
+    el.innerHTML = `
+      <div class="appointment-banner">
+        <span class="pulse-icon">〰</span>
+        Your appointment is at <strong>${formatTime12(appt.slot_time)}</strong>
+      </div>
+
+      <div class="ticket-card">
+        <div class="ticket-top">
+          <div>
+            <div class="ticket-label">YOUR SLOT</div>
+            <div class="ticket-time">${formatTime12(appt.slot_time)}</div>
+            <div class="ticket-date">${formatShortDate(appt.date)}</div>
+            <div class="ticket-slot-meta">Slot #${appt.slot_index} of ${appt.total_slots}</div>
+          </div>
+          <div class="live-badge"><span class="live-dot"></span> LIVE</div>
+        </div>
+
+        <div class="ticket-patient">For <strong>${escapeHtml(appt.name)}</strong></div>
+
+        <div class="ticket-queue-box">
+          <div class="tq-col">
+            <div class="tq-label">NOW SERVING</div>
+            <div class="tq-value">${current > 0 ? current : "—"}</div>
+          </div>
+          <div class="tq-col highlight">
+            <div class="tq-label">EST. WAIT</div>
+            <div class="tq-value">${isTurn ? "Now!" : isDone ? "—" : `${waitMin} min`}</div>
+          </div>
+        </div>
+
+        <div class="token-badge">Token #${appt.token}</div>
+
+        ${isTurn ? `<div class="alert alert-success">🎉 It's your turn! Please proceed to the doctor's cabin.</div>` : ""}
+        ${isDone ? `<div class="alert alert-info">✅ Consultation complete. Thank you!</div>` : ""}
+      </div>
+
+      <div id="doctor-card-wrap"></div>
+
+      ${appt.notes ? `
+        <div class="notes-block">
+          <div class="field-label">YOUR NOTES</div>
+          <div class="notes-text">${escapeHtml(appt.notes)}</div>
+        </div>
+      ` : ""}
+    `;
+
+    getDoctor(appt.doctor_id).then((doc) => {
+      const wrap = el.querySelector("#doctor-card-wrap");
+      if (!doc || !wrap) return;
+      wrap.innerHTML = `
+        <div class="doctor-mini-card mt-16">
+          <img class="doctor-photo-sm" src="${doc.photo_url || ""}" alt="" />
+          <div>
+            <div class="doctor-name">${escapeHtml(doc.name)}</div>
+            <div class="doctor-spec">${escapeHtml(doc.specialization)}</div>
+            <div class="doctor-hours-sm">🕐 9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM</div>
+          </div>
+        </div>`;
     });
   }
 
-  function updateUI({ appointment, queue }) {
-    if (!appointment) return;
-
-    const currentToken = queue?.current_token ?? 0;
-    const yourToken = appointment.token;
-    const waitMinutes = calcWaitMinutes(yourToken, currentToken, slotMinutes);
-    const position = Math.max(0, yourToken - currentToken);
-
-    root.querySelector("#your-token").textContent = yourToken;
-    root.querySelector("#now-serving").textContent =
-      currentToken > 0 ? `#${currentToken}` : "Not started";
-    root.querySelector("#wait-time").textContent =
-      waitMinutes === 0 ? "Now!" : `${waitMinutes} min`;
-
-    const turnAlert = root.querySelector("#turn-alert");
-    const doneAlert = root.querySelector("#done-alert");
-    const positionInfo = root.querySelector("#position-info");
-
-    turnAlert.style.display = "none";
-    doneAlert.style.display = "none";
-
-    if (appointment.status === "done") {
-      doneAlert.style.display = "block";
-      positionInfo.textContent = "";
-    } else if (yourToken <= currentToken && currentToken > 0) {
-      turnAlert.style.display = "block";
-      positionInfo.textContent = "";
-    } else if (position > 0) {
-      positionInfo.innerHTML = `<span class="position-badge">${position} patient${position > 1 ? "s" : ""} ahead · ~${waitMinutes} min wait</span>`;
-    } else {
-      positionInfo.textContent = "";
-    }
-  }
-
-  getDoctor(doctorId).then((doc) => {
-    if (doc) {
-      if (!doctorName) root.querySelector("#doctor-label").textContent = doc.name;
-      slotMinutes = doc.slot_duration_minutes || 30;
-    }
-  });
-
-  unsub = subscribeToAppointment(appointmentId, (data) => {
-    if (data) updateUI(data);
-  });
+  unsub = subscribeToAppointment(appointmentId, renderTicket);
 }

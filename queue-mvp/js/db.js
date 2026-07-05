@@ -5,9 +5,7 @@ import {
   doc,
   getDocs,
   getDoc,
-  addDoc,
   setDoc,
-  updateDoc,
   query,
   where,
   orderBy,
@@ -15,6 +13,8 @@ import {
   runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
+import { getSlotIndex, getTotalSlots, getAllSlotTimes } from "./utils/slots.js";
+import { todayStr } from "./utils/dates.js";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,17 +26,27 @@ const firebaseConfig = {
 };
 
 export const isFirebaseConfigured =
-  Boolean(firebaseConfig.projectId) &&
-  firebaseConfig.projectId !== "your-project-id";
+  Boolean(firebaseConfig.projectId) && firebaseConfig.projectId !== "your-project-id";
 
 let db = null;
 if (isFirebaseConfigured) {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
+  initializeApp(firebaseConfig);
+  db = getFirestore();
 }
 
-const STORAGE_KEY = "waitsmart-kvt-v1";
-const CHANNEL = "waitsmart-mvp-sync";
+const STORAGE_KEY = "waitsmart-kvt-v2";
+const CHANNEL = "waitsmart-kvt-sync";
+
+const CLINIC_IMG =
+  "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80";
+const DOC_MALE =
+  "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80";
+const DOC_FEMALE =
+  "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&q=80";
+
+function queueKey(doctorId, date) {
+  return `${doctorId}_${date}`;
+}
 
 function loadLocalData() {
   try {
@@ -45,12 +55,7 @@ function loadLocalData() {
   } catch {
     /* ignore */
   }
-  return {
-    clinics: [],
-    doctors: [],
-    queues: {},
-    appointments: [],
-  };
+  return { clinics: [], doctors: [], queues: {}, appointments: [] };
 }
 
 function saveLocalData(data) {
@@ -66,36 +71,56 @@ function seedLocalIfEmpty() {
   const data = loadLocalData();
   if (data.clinics.length > 0) return data;
 
-  const clinic1 = {
-    id: "clinic-moolakadai",
-    name: "KVT Hospital — Moolakadai",
-    branch: "Moolakadai",
-    address: "Moolakadai, Chennai",
-    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
-  };
-  const clinic2 = {
-    id: "clinic-erukenchery",
-    name: "KVT Hospital — Erukenchery",
-    branch: "Erukenchery",
-    address: "Erukenchery, Chennai",
-    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
-  };
-
-  const doctors = [
+  data.clinics = [
     {
-      id: "doc-hari-prasad",
-      name: "Dr. Hari Prasad",
-      clinic_id: "clinic-moolakadai",
-      specialization: "General Medicine",
-      slot_duration_minutes: 30,
+      id: "clinic-moolakadai",
+      name: "KVT Hospital — Moolakadai",
+      branch: "Moolakadai",
+      address: "Moolakadai, Chennai",
+      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+      image_url: CLINIC_IMG,
+    },
+    {
+      id: "clinic-erukenchery",
+      name: "KVT Hospital — Erukenchery",
+      branch: "Erukenchery",
+      address: "Erukenchery, Chennai",
+      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+      image_url: CLINIC_IMG,
     },
   ];
 
-  data.clinics = [clinic1, clinic2];
-  data.doctors = doctors;
-  data.queues = {
-    "doc-hari-prasad": { doctor_id: "doc-hari-prasad", current_token: 0, last_token: 0 },
-  };
+  data.doctors = [
+    {
+      id: "doc-karthik",
+      name: "Dr. Karthik Iyer",
+      clinic_id: "clinic-moolakadai",
+      specialization: "General Physician",
+      experience_years: 12,
+      slot_duration_minutes: 30,
+      photo_url: DOC_MALE,
+    },
+    {
+      id: "doc-vandana",
+      name: "Dr. Vandana Rao",
+      clinic_id: "clinic-moolakadai",
+      specialization: "Pediatrician",
+      experience_years: 9,
+      slot_duration_minutes: 30,
+      photo_url: DOC_FEMALE,
+    },
+    {
+      id: "doc-hari",
+      name: "Dr. Hari Prasad",
+      clinic_id: "clinic-erukenchery",
+      specialization: "General Medicine",
+      experience_years: 15,
+      slot_duration_minutes: 30,
+      photo_url: DOC_MALE,
+    },
+  ];
+
+  data.queues = {};
   data.appointments = [];
   saveLocalData(data);
   return data;
@@ -108,20 +133,29 @@ function notifyLocalListeners() {
   localListeners.forEach((fn) => fn());
 }
 
-function initLocalSync() {
-  if (broadcastChannel) return;
-  try {
-    broadcastChannel = new BroadcastChannel(CHANNEL);
-    broadcastChannel.onmessage = () => notifyLocalListeners();
-  } catch {
-    /* ignore */
-  }
-}
-
 function subscribeLocal(fn) {
-  initLocalSync();
+  if (!broadcastChannel) {
+    try {
+      broadcastChannel = new BroadcastChannel(CHANNEL);
+      broadcastChannel.onmessage = () => notifyLocalListeners();
+    } catch {
+      /* ignore */
+    }
+  }
   localListeners.add(fn);
   return () => localListeners.delete(fn);
+}
+
+function ensureQueue(data, doctorId, date) {
+  const key = queueKey(doctorId, date);
+  if (!data.queues[key]) {
+    data.queues[key] = { doctor_id: doctorId, date, current_token: 0, last_token: 0 };
+  }
+  return data.queues[key];
+}
+
+function getAppointmentsForDoctorDate(data, doctorId, date) {
+  return data.appointments.filter((a) => a.doctor_id === doctorId && a.date === date);
 }
 
 // ─── Public API ───────────────────────────────────────────────
@@ -133,6 +167,11 @@ export async function getClinics() {
   }
   seedLocalIfEmpty();
   return loadLocalData().clinics;
+}
+
+export async function getClinic(clinicId) {
+  const clinics = await getClinics();
+  return clinics.find((c) => c.id === clinicId) || null;
 }
 
 export async function getDoctors(clinicId) {
@@ -148,48 +187,10 @@ export async function getDoctors(clinicId) {
 export async function getDoctor(doctorId) {
   if (isFirebaseConfigured) {
     const snap = await getDoc(doc(db, "doctors", doctorId));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() };
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
   }
   seedLocalIfEmpty();
   return loadLocalData().doctors.find((d) => d.id === doctorId) || null;
-}
-
-export async function getQueue(doctorId) {
-  if (isFirebaseConfigured) {
-    const snap = await getDoc(doc(db, "queues", doctorId));
-    if (!snap.exists()) return { doctor_id: doctorId, current_token: 0, last_token: 0 };
-    return snap.data();
-  }
-  seedLocalIfEmpty();
-  return loadLocalData().queues[doctorId] || { doctor_id: doctorId, current_token: 0, last_token: 0 };
-}
-
-export async function getWaitingAppointments(doctorId) {
-  if (isFirebaseConfigured) {
-    const q = query(
-      collection(db, "appointments"),
-      where("doctor_id", "==", doctorId),
-      where("status", "==", "waiting"),
-      orderBy("token", "asc"),
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  }
-  seedLocalIfEmpty();
-  return loadLocalData()
-    .appointments.filter((a) => a.doctor_id === doctorId && a.status === "waiting")
-    .sort((a, b) => a.token - b.token);
-}
-
-export async function getAppointment(appointmentId) {
-  if (isFirebaseConfigured) {
-    const snap = await getDoc(doc(db, "appointments", appointmentId));
-    if (!snap.exists()) return null;
-    return { id: snap.id, ...snap.data() };
-  }
-  seedLocalIfEmpty();
-  return loadLocalData().appointments.find((a) => a.id === appointmentId) || null;
 }
 
 export async function getAllDoctors() {
@@ -201,9 +202,46 @@ export async function getAllDoctors() {
   return loadLocalData().doctors;
 }
 
-export function calcWaitMinutes(patientToken, currentToken, slotMinutes = 30) {
-  const diff = Math.max(0, patientToken - currentToken);
-  return diff * slotMinutes;
+export async function getQueue(doctorId, date = todayStr()) {
+  const key = queueKey(doctorId, date);
+  if (isFirebaseConfigured) {
+    const snap = await getDoc(doc(db, "queues", key));
+    if (!snap.exists()) return { doctor_id: doctorId, date, current_token: 0, last_token: 0 };
+    return snap.data();
+  }
+  const data = seedLocalIfEmpty();
+  return ensureQueue(data, doctorId, date);
+}
+
+export async function getBookedSlotTimes(doctorId, date) {
+  const appts = await getAppointmentsForDate(doctorId, date);
+  return new Set(appts.filter((a) => a.status !== "cancelled").map((a) => a.slot_time));
+}
+
+export async function getAppointmentsForDate(doctorId, date) {
+  if (isFirebaseConfigured) {
+    const q = query(
+      collection(db, "appointments"),
+      where("doctor_id", "==", doctorId),
+      where("date", "==", date),
+      orderBy("token", "asc"),
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+  seedLocalIfEmpty();
+  return getAppointmentsForDoctorDate(loadLocalData(), doctorId, date).sort(
+    (a, b) => a.token - b.token,
+  );
+}
+
+export async function getAppointment(appointmentId) {
+  if (isFirebaseConfigured) {
+    const snap = await getDoc(doc(db, "appointments", appointmentId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  }
+  seedLocalIfEmpty();
+  return loadLocalData().appointments.find((a) => a.id === appointmentId) || null;
 }
 
 export async function getDoctorSlotDuration(doctorId) {
@@ -211,14 +249,42 @@ export async function getDoctorSlotDuration(doctorId) {
   return doctor?.slot_duration_minutes ?? 30;
 }
 
-export async function bookAppointment({ name, doctorId, notes }) {
+export function calcWaitMinutes(patientToken, currentToken, slotMinutes = 30) {
+  if (!patientToken || !currentToken) {
+    const diff = Math.max(0, (patientToken || 0) - (currentToken || 0));
+    return diff * slotMinutes;
+  }
+  const diff = Math.max(0, patientToken - currentToken);
+  return diff * slotMinutes;
+}
+
+export function getQueueStats(queue, appointments) {
+  const current = queue?.current_token ?? 0;
+  const active = appointments.filter((a) => !["cancelled"].includes(a.status));
+  const waiting = active.filter((a) => a.status === "waiting" && a.token > current);
+  const inCabin = active.find((a) => a.token === current && current > 0 && a.status === "waiting");
+  return {
+    nowServing: current > 0 ? current : null,
+    booked: active.length,
+    waiting: waiting.length,
+    inCabin,
+    waitingList: waiting,
+  };
+}
+
+export async function bookAppointment({ name, doctorId, clinicId, date, slotTime, notes }) {
+  const duration = await getDoctorSlotDuration(doctorId);
+  const slotIndex = getSlotIndex(slotTime, duration);
+  const totalSlots = getTotalSlots(duration);
+
   if (isFirebaseConfigured) {
+    const key = queueKey(doctorId, date);
     return runTransaction(db, async (tx) => {
-      const queueRef = doc(db, "queues", doctorId);
+      const queueRef = doc(db, "queues", key);
       const queueSnap = await tx.get(queueRef);
       const queue = queueSnap.exists()
         ? queueSnap.data()
-        : { doctor_id: doctorId, current_token: 0, last_token: 0 };
+        : { doctor_id: doctorId, date, current_token: 0, last_token: 0 };
 
       const token = queue.last_token + 1;
       tx.set(queueRef, { ...queue, last_token: token }, { merge: true });
@@ -227,6 +293,11 @@ export async function bookAppointment({ name, doctorId, notes }) {
       const appointment = {
         name,
         doctor_id: doctorId,
+        clinic_id: clinicId,
+        date,
+        slot_time: slotTime,
+        slot_index: slotIndex,
+        total_slots: totalSlots,
         token,
         status: "waiting",
         notes: notes || "",
@@ -238,15 +309,24 @@ export async function bookAppointment({ name, doctorId, notes }) {
   }
 
   const data = seedLocalIfEmpty();
-  const queue = data.queues[doctorId] || { doctor_id: doctorId, current_token: 0, last_token: 0 };
+  const booked = getAppointmentsForDoctorDate(data, doctorId, date);
+  if (booked.some((a) => a.slot_time === slotTime && a.status !== "cancelled")) {
+    throw new Error("This slot was just booked. Please pick another.");
+  }
+
+  const queue = ensureQueue(data, doctorId, date);
   const token = queue.last_token + 1;
   queue.last_token = token;
-  data.queues[doctorId] = queue;
 
   const appointment = {
     id: `appt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     name,
     doctor_id: doctorId,
+    clinic_id: clinicId,
+    date,
+    slot_time: slotTime,
+    slot_index: slotIndex,
+    total_slots: totalSlots,
     token,
     status: "waiting",
     notes: notes || "",
@@ -258,127 +338,151 @@ export async function bookAppointment({ name, doctorId, notes }) {
   return appointment;
 }
 
-async function findAppointmentByToken(doctorId, token) {
-  const q = query(
-    collection(db, "appointments"),
-    where("doctor_id", "==", doctorId),
-    where("token", "==", token),
+async function findAppointmentByToken(doctorId, date, token) {
+  if (isFirebaseConfigured) {
+    const q = query(
+      collection(db, "appointments"),
+      where("doctor_id", "==", doctorId),
+      where("date", "==", date),
+      where("token", "==", token),
+    );
+    const snap = await getDocs(q);
+    return snap.docs[0] || null;
+  }
+  const data = loadLocalData();
+  const appt = data.appointments.find(
+    (a) => a.doctor_id === doctorId && a.date === date && a.token === token,
   );
-  const snap = await getDocs(q);
-  return snap.docs[0] || null;
+  return appt ? { ref: null, data: () => appt, id: appt.id } : null;
 }
 
-async function advanceQueue(doctorId, action) {
+async function advanceQueue(doctorId, date, action) {
+  const key = queueKey(doctorId, date);
+
   if (isFirebaseConfigured) {
-    const queueSnap = await getDoc(doc(db, "queues", doctorId));
-    if (!queueSnap.exists()) throw new Error("Queue not found");
-    const queue = queueSnap.data();
+    const queue = await getQueue(doctorId, date);
     const currentToken = queue.current_token;
     const nextToken = currentToken + 1;
-
     let apptDoc = null;
     if (currentToken > 0) {
-      apptDoc = await findAppointmentByToken(doctorId, currentToken);
+      apptDoc = await findAppointmentByToken(doctorId, date, currentToken);
     }
 
     return runTransaction(db, async (tx) => {
-      const queueRef = doc(db, "queues", doctorId);
-      const freshQueue = await tx.get(queueRef);
-      if (!freshQueue.exists()) throw new Error("Queue not found");
-
+      const queueRef = doc(db, "queues", key);
       if (apptDoc) {
-        const status =
-          action === "no_show" ? "no_show" : action === "skip" ? "skipped" : "done";
+        const status = action === "no_show" ? "no_show" : action === "skip" ? "skipped" : "done";
         tx.update(apptDoc.ref, { status });
       }
-
-      tx.update(queueRef, { current_token: nextToken });
-      return {
-        current_token: nextToken,
-        last_token: freshQueue.data().last_token,
-      };
+      tx.set(queueRef, { doctor_id: doctorId, date, current_token: nextToken, last_token: queue.last_token }, { merge: true });
+      return { current_token: nextToken, last_token: queue.last_token };
     });
   }
 
   const data = loadLocalData();
-  const queue = data.queues[doctorId];
-  if (!queue) throw new Error("Queue not found");
-
+  const queue = ensureQueue(data, doctorId, date);
   const nextToken = queue.current_token + 1;
 
   if (queue.current_token > 0) {
     data.appointments.forEach((a) => {
-      if (a.doctor_id === doctorId && a.token === queue.current_token) {
+      if (a.doctor_id === doctorId && a.date === date && a.token === queue.current_token) {
         if (action === "no_show") a.status = "no_show";
         else if (action === "skip") a.status = "skipped";
-        else if (action === "next") a.status = "done";
+        else a.status = "done";
       }
     });
   }
 
   queue.current_token = nextToken;
-  data.queues[doctorId] = queue;
   saveLocalData(data);
   notifyLocalListeners();
   return queue;
 }
 
-export function nextPatient(doctorId) {
-  return advanceQueue(doctorId, "next");
+export function nextPatient(doctorId, date) {
+  return advanceQueue(doctorId, date, "next");
 }
 
-export function skipPatient(doctorId) {
-  return advanceQueue(doctorId, "skip");
+export function skipPatient(doctorId, date) {
+  return advanceQueue(doctorId, date, "skip");
 }
 
-export function markNoShow(doctorId) {
-  return advanceQueue(doctorId, "no_show");
+export function markNoShow(doctorId, date) {
+  return advanceQueue(doctorId, date, "no_show");
 }
 
-export function subscribeToQueue(doctorId, callback) {
+export async function resetQueue(doctorId, date) {
+  const key = queueKey(doctorId, date);
+  if (isFirebaseConfigured) {
+    await setDoc(doc(db, "queues", key), {
+      doctor_id: doctorId,
+      date,
+      current_token: 0,
+      last_token: 0,
+    });
+    return;
+  }
+  const data = loadLocalData();
+  data.queues[key] = { doctor_id: doctorId, date, current_token: 0, last_token: 0 };
+  data.appointments.forEach((a) => {
+    if (a.doctor_id === doctorId && a.date === date && a.status === "waiting") {
+      a.status = "cancelled";
+    }
+  });
+  saveLocalData(data);
+  notifyLocalListeners();
+}
+
+export function subscribeToDoctorDay(doctorId, date, callback) {
   if (isFirebaseConfigured) {
     let latestQueue = null;
-    let latestWaiting = [];
+    let latestAppts = [];
 
-    const emit = () => {
-      callback({ queue: latestQueue, waiting: latestWaiting });
+    const emit = async () => {
+      const duration = await getDoctorSlotDuration(doctorId);
+      callback({
+        queue: latestQueue,
+        appointments: latestAppts,
+        stats: getQueueStats(latestQueue, latestAppts),
+        duration,
+      });
     };
 
-    const unsubQueue = onSnapshot(doc(db, "queues", doctorId), (snap) => {
-      latestQueue = snap.exists() ? snap.data() : null;
+    const unsubQ = onSnapshot(doc(db, "queues", queueKey(doctorId, date)), (snap) => {
+      latestQueue = snap.exists() ? snap.data() : { doctor_id: doctorId, date, current_token: 0, last_token: 0 };
       emit();
     });
 
     const q = query(
       collection(db, "appointments"),
       where("doctor_id", "==", doctorId),
-      where("status", "==", "waiting"),
+      where("date", "==", date),
       orderBy("token", "asc"),
     );
-    const unsubAppts = onSnapshot(q, (snap) => {
-      latestWaiting = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const unsubA = onSnapshot(q, (snap) => {
+      latestAppts = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       emit();
     });
 
     return () => {
-      unsubQueue();
-      unsubAppts();
+      unsubQ();
+      unsubA();
     };
   }
 
-  const poll = () => {
+  const poll = async () => {
     const data = loadLocalData();
-    callback({
-      queue: data.queues[doctorId] || null,
-      waiting: data.appointments
-        .filter((a) => a.doctor_id === doctorId && a.status === "waiting")
-        .sort((a, b) => a.token - b.token),
-    });
+    const queue = ensureQueue(data, doctorId, date);
+    const appointments = getAppointmentsForDoctorDate(data, doctorId, date).sort(
+      (a, b) => a.token - b.token,
+    );
+    const duration = await getDoctorSlotDuration(doctorId);
+    callback({ queue, appointments, stats: getQueueStats(queue, appointments), duration });
   };
 
   poll();
   const unsub = subscribeLocal(poll);
-  const interval = setInterval(poll, 2000);
+  const interval = setInterval(poll, 1500);
   return () => {
     unsub();
     clearInterval(interval);
@@ -391,10 +495,15 @@ export function subscribeToAppointment(appointmentId, callback) {
     let latestQueue = null;
     let queueUnsub = null;
 
-    const emit = () => {
-      if (latestAppt) {
-        callback({ appointment: latestAppt, queue: latestQueue });
-      }
+    const emit = async () => {
+      if (!latestAppt) return;
+      const duration = await getDoctorSlotDuration(latestAppt.doctor_id);
+      callback({
+        appointment: latestAppt,
+        queue: latestQueue,
+        stats: getQueueStats(latestQueue, [latestAppt]),
+        duration,
+      });
     };
 
     const apptUnsub = onSnapshot(doc(db, "appointments", appointmentId), (snap) => {
@@ -403,12 +512,16 @@ export function subscribeToAppointment(appointmentId, callback) {
         return;
       }
       latestAppt = { id: snap.id, ...snap.data() };
-
       if (queueUnsub) queueUnsub();
-      queueUnsub = onSnapshot(doc(db, "queues", latestAppt.doctor_id), (qSnap) => {
-        latestQueue = qSnap.exists() ? qSnap.data() : null;
-        emit();
-      });
+      queueUnsub = onSnapshot(
+        doc(db, "queues", queueKey(latestAppt.doctor_id, latestAppt.date)),
+        (qSnap) => {
+          latestQueue = qSnap.exists()
+            ? qSnap.data()
+            : { current_token: 0, last_token: 0 };
+          emit();
+        },
+      );
     });
 
     return () => {
@@ -417,16 +530,20 @@ export function subscribeToAppointment(appointmentId, callback) {
     };
   }
 
-  const poll = () => {
+  const poll = async () => {
     const data = loadLocalData();
     const appt = data.appointments.find((a) => a.id === appointmentId);
     if (!appt) {
       callback(null);
       return;
     }
+    const queue = ensureQueue(data, appt.doctor_id, appt.date);
+    const duration = await getDoctorSlotDuration(appt.doctor_id);
     callback({
       appointment: appt,
-      queue: data.queues[appt.doctor_id] || null,
+      queue,
+      stats: getQueueStats(queue, [appt]),
+      duration,
     });
   };
 
@@ -439,4 +556,5 @@ export function subscribeToAppointment(appointmentId, callback) {
   };
 }
 
+export { getAllSlotTimes, getTotalSlots };
 export { isFirebaseConfigured as usingFirebase };
