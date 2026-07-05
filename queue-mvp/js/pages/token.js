@@ -2,16 +2,20 @@ import {
   subscribeToAppointment,
   calcWaitMinutes,
   getDoctor,
+  getDoctorSlotDuration,
 } from "../db.js";
 import { replace, getParams } from "../router.js";
+import { renderShell } from "../layout.js";
 
 export function renderToken(root) {
-  const { appointmentId, doctorName } = getParams();
+  const { appointmentId, doctorName, doctorId } = getParams();
   let unsub = null;
+  let slotMinutes = 30;
 
-  root.innerHTML = `
-    <div class="page token-page">
-      <div class="page-content">
+  renderShell(root, {
+    footer: false,
+    content: `
+      <div class="page-content token-page">
         <div class="success-icon">✅</div>
         <h2>Token Confirmed!</h2>
         <p class="subtitle" id="doctor-label">${doctorName || ""}</p>
@@ -47,24 +51,29 @@ export function renderToken(root) {
         </div>
 
         <div class="position-info" id="position-info"></div>
+
+        <button class="btn btn-outline btn-block mt-20" id="home-btn">Back to Home</button>
       </div>
-      <div class="page-footer">
-        <button class="btn btn-outline btn-block" id="home-btn">Back to Home</button>
-      </div>
-    </div>
-  `;
+    `,
+  });
 
   root.querySelector("#home-btn").addEventListener("click", () => {
     if (unsub) unsub();
     replace("/");
   });
 
+  if (doctorId) {
+    getDoctorSlotDuration(doctorId).then((m) => {
+      slotMinutes = m;
+    });
+  }
+
   function updateUI({ appointment, queue }) {
     if (!appointment) return;
 
     const currentToken = queue?.current_token ?? 0;
     const yourToken = appointment.token;
-    const waitMinutes = calcWaitMinutes(yourToken, currentToken);
+    const waitMinutes = calcWaitMinutes(yourToken, currentToken, slotMinutes);
     const position = Math.max(0, yourToken - currentToken);
 
     root.querySelector("#your-token").textContent = yourToken;
@@ -87,15 +96,16 @@ export function renderToken(root) {
       turnAlert.style.display = "block";
       positionInfo.textContent = "";
     } else if (position > 0) {
-      positionInfo.innerHTML = `<span class="position-badge">${position} patient${position > 1 ? "s" : ""} ahead of you</span>`;
+      positionInfo.innerHTML = `<span class="position-badge">${position} patient${position > 1 ? "s" : ""} ahead · ~${waitMinutes} min wait</span>`;
     } else {
       positionInfo.textContent = "";
     }
   }
 
-  getDoctor(getParams().doctorId).then((doc) => {
-    if (doc && !doctorName) {
-      root.querySelector("#doctor-label").textContent = doc.name;
+  getDoctor(doctorId).then((doc) => {
+    if (doc) {
+      if (!doctorName) root.querySelector("#doctor-label").textContent = doc.name;
+      slotMinutes = doc.slot_duration_minutes || 30;
     }
   });
 

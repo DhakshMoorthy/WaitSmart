@@ -1,18 +1,16 @@
-import { bookAppointment, getQueue, calcWaitMinutes } from "../db.js";
-import { navigate, back, getParams } from "../router.js";
+import { bookAppointment, getQueue, calcWaitMinutes, getDoctorSlotDuration, subscribeToQueue } from "../db.js";
+import { navigate, getParams } from "../router.js";
+import { renderShell } from "../layout.js";
 
 export function renderBook(root) {
   const { doctorId, doctorName } = getParams();
+  let unsub = null;
 
-  root.innerHTML = `
-    <div class="page">
-      <div class="page-header">
-        <button class="back-btn" id="back-btn">←</button>
-        <div>
-          <h2>Get your token</h2>
-          <p class="subtitle">${doctorName || ""}</p>
-        </div>
-      </div>
+  renderShell(root, {
+    showBack: true,
+    title: "Get your token",
+    subtitle: doctorName || "",
+    content: `
       <div class="page-content">
         <form id="book-form" class="book-form">
           <div class="form-group">
@@ -32,21 +30,35 @@ export function renderBook(root) {
               <span>Patients waiting</span>
               <strong id="preview-waiting">—</strong>
             </div>
+            <div class="preview-row">
+              <span>Est. wait per patient</span>
+              <strong id="preview-slot">30 min</strong>
+            </div>
           </div>
           <button type="submit" class="btn btn-primary btn-lg btn-block" id="submit-btn">
             Get Token
           </button>
         </form>
       </div>
-    </div>
-  `;
-
-  root.querySelector("#back-btn").addEventListener("click", () => back());
-
-  getQueue(doctorId).then((q) => {
-    root.querySelector("#preview-serving").textContent = q.current_token > 0 ? `#${q.current_token}` : "Not started";
-    root.querySelector("#preview-waiting").textContent = Math.max(0, q.last_token - q.current_token);
+    `,
   });
+
+  getDoctorSlotDuration(doctorId).then((mins) => {
+    root.querySelector("#preview-slot").textContent = `${mins} min`;
+  });
+
+  function updatePreview(queue) {
+    if (!queue) return;
+    root.querySelector("#preview-serving").textContent =
+      queue.current_token > 0 ? `#${queue.current_token}` : "Not started";
+    root.querySelector("#preview-waiting").textContent = Math.max(
+      0,
+      queue.last_token - queue.current_token,
+    );
+  }
+
+  getQueue(doctorId).then(updatePreview);
+  unsub = subscribeToQueue(doctorId, ({ queue }) => updatePreview(queue));
 
   root.querySelector("#book-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -62,8 +74,10 @@ export function renderBook(root) {
     try {
       const appointment = await bookAppointment({ name, doctorId, notes });
       const queue = await getQueue(doctorId);
-      const waitMinutes = calcWaitMinutes(appointment.token, queue.current_token);
+      const slotMins = await getDoctorSlotDuration(doctorId);
+      const waitMinutes = calcWaitMinutes(appointment.token, queue.current_token, slotMins);
 
+      if (unsub) unsub();
       navigate("/token", {
         appointmentId: appointment.id,
         doctorId,

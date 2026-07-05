@@ -1,13 +1,5 @@
 /**
- * Seed Firestore with 2 clinics, 3 doctors, and initialized queues.
- *
- * Usage:
- *   1. Create a Firebase project and download a service account key
- *   2. Set GOOGLE_APPLICATION_CREDENTIALS=/path/to/serviceAccount.json
- *   3. Set FIREBASE_PROJECT_ID=your-project-id
- *   4. Run: node scripts/seed.mjs
- *
- * Or use the built-in local demo mode (no Firebase needed) — data auto-seeds in browser.
+ * Seed Firestore for KVT Hospital
  */
 
 import { initializeApp, cert, applicationDefault } from "firebase-admin/app";
@@ -30,22 +22,38 @@ initializeApp({
 const db = getFirestore();
 
 const clinics = [
-  { id: "clinic-1", name: "City Care Hospital", address: "MG Road, Bengaluru", hours: "9 AM – 2 PM • 4 PM – 6 PM" },
-  { id: "clinic-2", name: "Green Valley Clinic", address: "Indiranagar, Bengaluru", hours: "9 AM – 2 PM • 4 PM – 6 PM" },
+  {
+    id: "clinic-moolakadai",
+    name: "KVT Hospital — Moolakadai",
+    branch: "Moolakadai",
+    address: "Moolakadai, Chennai",
+    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+  },
+  {
+    id: "clinic-erukenchery",
+    name: "KVT Hospital — Erukenchery",
+    branch: "Erukenchery",
+    address: "Erukenchery, Chennai",
+    hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+  },
 ];
 
 const doctors = [
-  { id: "doc-1", name: "Dr. Priya Sharma", clinic_id: "clinic-1", specialization: "General Medicine" },
-  { id: "doc-2", name: "Dr. Rahul Mehta", clinic_id: "clinic-1", specialization: "Pediatrics" },
-  { id: "doc-3", name: "Dr. Ananya Reddy", clinic_id: "clinic-2", specialization: "Dermatology" },
+  {
+    id: "doc-hari-prasad",
+    name: "Dr. Hari Prasad",
+    clinic_id: "clinic-moolakadai",
+    specialization: "General Medicine",
+    slot_duration_minutes: 30,
+  },
 ];
 
 async function seed() {
-  console.log("Seeding Firestore...");
+  console.log("Seeding KVT Hospital Firestore...");
 
   for (const clinic of clinics) {
     await db.collection("clinics").doc(clinic.id).set(clinic);
-    console.log(`  ✓ Clinic: ${clinic.name}`);
+    console.log(`  ✓ ${clinic.name}`);
   }
 
   for (const doctor of doctors) {
@@ -55,12 +63,10 @@ async function seed() {
       current_token: 0,
       last_token: 0,
     });
-    console.log(`  ✓ Doctor: ${doctor.name} (queue initialized)`);
+    console.log(`  ✓ ${doctor.name} (30 min slots, queue initialized)`);
   }
 
   console.log("\nSeed complete!");
-  console.log("Deploy firestore.rules and create composite index for:");
-  console.log("  appointments: doctor_id ASC, status ASC, token ASC");
 }
 
 seed().catch((err) => {

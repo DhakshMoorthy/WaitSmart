@@ -1,25 +1,17 @@
 import { getDoctors, getQueue } from "../db.js";
-import { navigate, back, getParams } from "../router.js";
+import { navigate, getParams } from "../router.js";
+import { renderShell } from "../layout.js";
 
 export function renderDoctors(root) {
   const { clinicId, clinicName } = getParams();
 
-  root.innerHTML = `
-    <div class="page">
-      <div class="page-header">
-        <button class="back-btn" id="back-btn">←</button>
-        <div>
-          <h2>Choose a doctor</h2>
-          <p class="subtitle">${clinicName || ""}</p>
-        </div>
-      </div>
-      <div class="page-content" id="doctor-list">
-        <div class="loading"><div class="spinner"></div></div>
-      </div>
-    </div>
-  `;
+  renderShell(root, {
+    showBack: true,
+    title: "Choose a doctor",
+    subtitle: clinicName || "",
+    content: `<div class="page-content" id="doctor-list"><div class="loading"><div class="spinner"></div></div></div>`,
+  });
 
-  root.querySelector("#back-btn").addEventListener("click", () => back());
   loadDoctors(root, clinicId);
 }
 
@@ -30,7 +22,12 @@ async function loadDoctors(root, clinicId) {
     const doctors = await getDoctors(clinicId);
 
     if (doctors.length === 0) {
-      listEl.innerHTML = `<div class="empty-state"><div class="icon">👨‍⚕️</div><h3>No doctors available</h3></div>`;
+      listEl.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">👨‍⚕️</div>
+          <h3>No doctors available</h3>
+          <p>No doctors are registered at this branch yet.</p>
+        </div>`;
       return;
     }
 
@@ -40,17 +37,20 @@ async function loadDoctors(root, clinicId) {
       .map((doc, i) => {
         const q = queueData[i];
         const waiting = Math.max(0, q.last_token - q.current_token);
+        const serving = q.current_token > 0 ? `#${q.current_token}` : "—";
+        const slotMin = doc.slot_duration_minutes || 30;
         return `
       <div class="card doctor-card clickable" data-id="${doc.id}" data-name="${doc.name}">
         <div class="doctor-row">
           <div class="avatar">${doc.name.replace("Dr. ", "").charAt(0)}</div>
           <div class="doctor-info">
             <div class="name">${doc.name}</div>
-            <div class="spec">${doc.specialization || "General"}</div>
+            <div class="spec">${doc.specialization || "General Medicine"}</div>
+            <div class="slot-info">${slotMin} min slots · 9 AM–2 PM, 4 PM–6 PM</div>
           </div>
         </div>
         <div class="doctor-stats">
-          <span class="badge badge-serving">Serving #${q.current_token || "—"}</span>
+          <span class="badge badge-serving">Serving ${serving}</span>
           <span class="badge ${waiting > 3 ? "badge-warning" : "badge-neutral"}">${waiting} waiting</span>
         </div>
       </div>
