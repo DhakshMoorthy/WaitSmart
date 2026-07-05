@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
+    "dev": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host 0.0.0.0 --port 5173 --strictPort",
+    "start": "pnpm build && vite preview --host 0.0.0.0 --port 5173 --strictPort",
     "seed": "node scripts/seed.mjs"
   },
   "dependencies": {
