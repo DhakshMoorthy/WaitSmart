@@ -2,7 +2,6 @@
   "name": "waitsmart",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev:server": "pnpm --filter @waitsmart/server dev",
     "dev:admin": "pnpm --filter @waitsmart/admin dev",
