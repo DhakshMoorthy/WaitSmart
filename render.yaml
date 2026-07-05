@@ -22,7 +22,7 @@ services:
       - key: REDIS_URL
         fromService:
           name: waitsmart-redis
-          type: redis
+          type: keyvalue
           property: connectionString
       - key: JWT_ACCESS_SECRET
         generateValue: true
@@ -36,11 +36,12 @@ services:
         value: "https://waitsmart.vercel.app,http://localhost:3000"
     healthCheckPath: /health
 
-  - type: redis
+  - type: keyvalue
     name: waitsmart-redis
     plan: free
     region: singapore
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []  # internal-only; API connects via Render private network
 
 databases:
   - name: waitsmart-db
