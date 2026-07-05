@@ -3,6 +3,7 @@ packages:
   - "admin"
   - "superadmin"
   - "mobile"
+  - "queue-mvp"
   - "packages/*"
 allowBuilds:
   esbuild: true
