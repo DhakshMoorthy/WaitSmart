@@ -8,7 +8,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install -g pnpm@9.15.4 && NODE_ENV=development pnpm install --filter @waitsmart/server... && pnpm run build:deploy
+    buildCommand: npm install -g pnpm@9.15.4 && NODE_ENV=development pnpm install --filter @waitsmart/server... && pnpm run build:deploy && cd server && npx tsx src/db/migrate.ts && npx tsx src/db/seeds/index.ts
     startCommand: node server/dist/server.js
     envVars:
       - key: NODE_ENV
