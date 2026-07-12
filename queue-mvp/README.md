@@ -45,14 +45,25 @@ App opens at http://localhost:5173
 
 1. Render Dashboard → **New** → **Static Site**
 2. Connect GitHub repo `WaitSmart`
-3. Settings:
-   - **Name:** `waitsmart-web`
-   - **Root Directory:** leave blank (repo root)
-   - **Build Command:** `npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build`
-   - **Publish Directory:** `queue-mvp/dist`
-4. Add **Rewrite rule:** `/*` → `/index.html` (SPA routing for `/admin`, `/login`, etc.)
-5. Deploy — URL will be like `https://waitsmart-web.onrender.com`
-6. Add that URL to Render API `CORS_ORIGINS` on `waitsmart-api`
+3. On the **Create Static Site** form only these fields appear:
+
+   | Field | Value |
+   |-------|--------|
+   | **Name** | `waitsmart-web` |
+   | **Branch** | `main` |
+   | **Build Command** | `npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build` |
+   | **Publish Directory** | `queue-mvp/dist` |
+
+4. Click **Create Static Site** — wait for the first deploy to finish.
+
+5. **Redirects/Rewrites** are *not* on the create form. After the site exists:
+   - Dashboard → click your static site (`waitsmart-web`)
+   - Left menu → **Redirects/Rewrites** → Add Rule:
+     - Source: `/*` → Destination: `/index.html` → Action: **Rewrite**
+
+   If that tab is missing, you may have created a **Web Service** by mistake — delete and recreate as **Static Site**.
+
+6. Add the live URL to Render API `CORS_ORIGINS` on `waitsmart-api` (e.g. `https://waitsmart-web.onrender.com`)
 
 API URL is baked in via `queue-mvp/.env.production` (`VITE_API_URL=https://waitsmart-api.onrender.com`).
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --open",
-    "build": "vite build",
+    "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview --port 5173",
     "start": "vite --port 5173 --open",
     "serve": "pnpm build && npx --yes serve dist -s -l 8080"

@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { corsOrigins } from "./config/env.js";
+import { corsOriginCallback } from "./config/corsPolicy.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.router.js";
@@ -19,7 +19,7 @@ import { fileRouter } from "./modules/file/file.router.js";
 export const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: corsOrigins, credentials: true }));
+app.use(cors({ origin: corsOriginCallback, credentials: true }));
 app.use(express.json());
 app.use(apiRateLimiter);
 
