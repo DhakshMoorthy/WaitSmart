@@ -39,7 +39,33 @@ App opens at http://localhost:5173
 | Admin | `/admin` email login | `admin@apollo.waitsmart.app` / `Admin@1234` |
 | Doctor | `/admin` email login | `priya@apollo.waitsmart.app` / `Doctor@1234` |
 
-## Deploy (Vercel)
+## Deploy (production)
+
+### Option A — Render static site (recommended; works on free tier)
+
+1. Render Dashboard → **New** → **Static Site**
+2. Connect GitHub repo `WaitSmart`
+3. Settings:
+   - **Name:** `waitsmart-web`
+   - **Root Directory:** leave blank (repo root)
+   - **Build Command:** `npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build`
+   - **Publish Directory:** `queue-mvp/dist`
+4. Add **Rewrite rule:** `/*` → `/index.html` (SPA routing for `/admin`, `/login`, etc.)
+5. Deploy — URL will be like `https://waitsmart-web.onrender.com`
+6. Add that URL to Render API `CORS_ORIGINS` on `waitsmart-api`
+
+API URL is baked in via `queue-mvp/.env.production` (`VITE_API_URL=https://waitsmart-api.onrender.com`).
+
+### Option B — Vercel (personal account only)
+
+Vercel **Hobby teams** cannot promote production deployments. Use a **personal** Vercel account (not a team), or upgrade to Pro.
+
+1. Move/import project to personal account
+2. Root Directory → `queue-mvp`
+3. Disable Deployment Protection for production
+4. Redeploy
+
+## Deploy (Vercel — if using personal account)
 
 1. Set Vercel project **Root Directory** to `queue-mvp`
 2. Environment variable: `VITE_API_URL=https://waitsmart-api.onrender.com`

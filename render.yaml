@@ -33,8 +33,20 @@ services:
       - key: JWT_REFRESH_TTL
         value: "30d"
       - key: CORS_ORIGINS
-        value: "https://wait-smart-admin.vercel.app,http://localhost:3000,http://localhost:5173"
+        value: "https://waitsmart-web.onrender.com,https://wait-smart-admin.vercel.app,http://localhost:3000,http://localhost:5173"
     healthCheckPath: /health
+
+  - type: web
+    name: waitsmart-web
+    runtime: static
+    region: singapore
+    plan: free
+    buildCommand: npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build
+    staticPublishPath: ./queue-mvp/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
 
   - type: keyvalue
     name: waitsmart-redis
