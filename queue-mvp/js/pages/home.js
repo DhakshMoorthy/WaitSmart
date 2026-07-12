@@ -2,13 +2,11 @@ import {
   getClinics,
   getAppointment,
   getDoctor,
-  subscribeToAppointment,
-  calcWaitMinutes,
 } from "../db.js";
+import { get } from "../api.js";
 import { navigate } from "../router.js";
-import { renderShell, escapeHtml } from "../layout.js";
+import { renderShell, escapeHtml, HOSPITAL_NAME } from "../layout.js";
 import { getActiveTokenIds } from "../utils/active-tokens.js";
-import { formatTime12, formatShortDate } from "../utils/dates.js";
 
 export function renderHome(root) {
   renderShell(root, {
@@ -17,7 +15,7 @@ export function renderHome(root) {
       <div class="hero-block">
         <span class="hero-badge">Skip the wait</span>
         <h1 class="hero-title">Book a token,<br>track your turn live.</h1>
-        <p class="hero-desc">Real-time queue updates from KVT Hospital. No login, no hassle — just walk in when it's your turn.</p>
+        <p class="hero-desc">Real-time queue updates from ${HOSPITAL_NAME}. Book a slot and walk in when it's your turn.</p>
         <div class="hero-pills">
           <span class="pill">9 AM – 2 PM</span>
           <span class="pill">4 PM – 6 PM</span>
@@ -40,7 +38,18 @@ export function renderHome(root) {
 
 async function loadActiveTokens(root) {
   const section = root.querySelector("#active-section");
-  const ids = getActiveTokenIds();
+  let ids = getActiveTokenIds();
+
+  try {
+    const res = await get("/patients/history");
+    const historyIds = (res.data || [])
+      .filter((h) => !["done", "cancelled", "skipped", "no-show"].includes(h.status))
+      .map((h) => h.id);
+    ids = [...new Set([...ids, ...historyIds])];
+  } catch {
+    /* history unavailable */
+  }
+
   if (ids.length === 0) {
     section.innerHTML = "";
     return;
@@ -99,7 +108,7 @@ async function loadClinics(root) {
       <div class="clinic-image-card clickable" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
         <div class="clinic-img" style="background-image:url('${c.image_url || ""}')">
           <div class="clinic-img-overlay">
-            <span class="clinic-tag">KVT HOSPITAL</span>
+            <span class="clinic-tag">WAITSMART</span>
             <span class="clinic-branch">${escapeHtml(c.branch)}</span>
           </div>
         </div>

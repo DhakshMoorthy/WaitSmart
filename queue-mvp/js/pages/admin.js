@@ -5,7 +5,6 @@ import {
   nextPatient,
   skipPatient,
   markNoShow,
-  resetQueue,
 } from "../db.js";
 import { replace } from "../router.js";
 import { renderShell, clearAdminAuth, escapeHtml } from "../layout.js";
@@ -140,8 +139,6 @@ export function renderAdminDashboard(root) {
             <span>✕</span> No Show
           </button>
         </div>
-
-        <button class="reset-link" id="reset-btn">↻ Reset queue (admin)</button>
       </div>
 
       <div class="bookings-section">
@@ -175,11 +172,6 @@ export function renderAdminDashboard(root) {
     bindBtn(el.querySelector("#next-btn"), () => nextPatient(doctorId, date));
     bindBtn(el.querySelector("#skip-btn"), () => skipPatient(doctorId, date));
     bindBtn(el.querySelector("#noshow-btn"), () => markNoShow(doctorId, date));
-    el.querySelector("#reset-btn")?.addEventListener("click", () => {
-      if (confirm("Reset today's queue? This cancels waiting bookings.")) {
-        resetQueue(doctorId, date);
-      }
-    });
   }
 
   function bindBtn(btn, fn) {

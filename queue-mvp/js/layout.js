@@ -1,19 +1,18 @@
 import { navigate, back } from "./router.js";
+import { getAuth, isAdminRole, logout } from "./auth.js";
 
-export const HOSPITAL_NAME = "KVT Hospital";
-export const ADMIN_PASSCODE = "4321";
-export const ADMIN_SESSION_KEY = "waitsmart-admin-auth";
+export const HOSPITAL_NAME = "WaitSmart";
 
 export function isAdminAuthenticated() {
-  return sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
+  return getAuth().isAuthenticated && isAdminRole();
 }
 
 export function setAdminAuthenticated() {
-  sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+  /* Admin auth is handled via JWT in auth.js after login */
 }
 
 export function clearAdminAuth() {
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  logout();
 }
 
 export function escapeHtml(str) {

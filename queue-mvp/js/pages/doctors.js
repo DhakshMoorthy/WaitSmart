@@ -4,6 +4,11 @@ import { renderShell, escapeHtml } from "../layout.js";
 import { todayStr } from "../utils/dates.js";
 
 export function renderDoctors(root) {
+  if (root._doctorUnsubs) {
+    root._doctorUnsubs.forEach((u) => u());
+    root._doctorUnsubs = null;
+  }
+
   const { clinicId, clinicName } = getParams();
   const date = todayStr();
 

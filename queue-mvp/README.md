@@ -1,57 +1,56 @@
-# KVT Hospital — Live Queue
+# WaitSmart — Live Queue (queue-mvp)
 
-Production-ready hospital queue & appointment system. Mobile-first, real-time, deployable.
+Production frontend for WaitSmart. Mobile-first queue UI connected to the WaitSmart Express/PostgreSQL backend.
 
 ## Features
 
-- **Patient app** — clinic cards, doctor profiles, 30-min slot booking, live token tracking
-- **Admin dashboard** — passcode protected (`4321`), slot control, queue management
-- **Real-time sync** — live updates across patient & admin tabs (WebSocket-style via BroadcastChannel + polling)
-- **Per-day queues** — separate queue state per doctor per date
-- **KVT branding** — professional blue medical UI
+- **Patient flow** — OTP login, clinic picker, doctor profiles, slot booking, live token tracking
+- **Admin dashboard** — email/password login (admin or doctor role), queue control (Next / Skip / No Show)
+- **Real-time sync** — Socket.io `queue:update` and `booking:created` events
+- **WaitSmart branding** — professional blue medical UI (from queue-mvp)
 
-## Branches & Doctors
+## Local development
 
-| Branch | Doctors |
-|--------|---------|
-| **Moolakadai** | Dr. Karthik Iyer (General Physician), Dr. Vandana Rao (Pediatrician) |
-| **Erukenchery** | Dr. Hari Prasad (General Medicine) |
-
-**Hours:** 9 AM – 2 PM, 4 PM – 6 PM · **Slots:** 30 minutes
-
-## Run locally (your machine)
-
-From the repo root:
+**Terminal 1 — backend** (from repo root):
 
 ```bash
+# Docker Postgres + Redis, or your existing local stack
+cd server && pnpm dev
+```
+
+API runs at http://localhost:4000
+
+**Terminal 2 — frontend**:
+
+```bash
+cd queue-mvp
+cp .env.example .env
 pnpm install
-pnpm start:mvp
+pnpm dev
 ```
 
-Browser opens at http://localhost:5173 automatically.
+App opens at http://localhost:5173
 
-- Admin: http://localhost:5173/admin — passcode **4321**
+### Test credentials (from backend seed)
 
-## Deploy
+| Role | Login method | Credentials |
+|------|--------------|-------------|
+| Patient | OTP at `/login` | Any phone; use `devOtp` shown when SMS is not configured |
+| Admin | `/admin` email login | `admin@apollo.waitsmart.app` / `Admin@1234` |
+| Doctor | `/admin` email login | `priya@apollo.waitsmart.app` / `Doctor@1234` |
 
-```bash
-cd queue-mvp && pnpm build
-```
+## Deploy (Vercel)
 
-Deploy `dist/` to Vercel, Firebase Hosting, or Emergent. Enable SPA rewrites for `/admin`.
+1. Set Vercel project **Root Directory** to `queue-mvp`
+2. Environment variable: `VITE_API_URL=https://waitsmart-api.onrender.com`
+3. Add the Vercel URL to Render `CORS_ORIGINS`
+4. Redeploy Vercel (clear build cache if env changed)
 
-## Firebase (production)
+## Architecture
 
-1. Copy `.env.example` → `.env`
-2. `pnpm seed` — seeds KVT data
-3. Deploy Firestore rules + indexes
+- UI pages: `js/pages/*.js` (unchanged queue-mvp screens)
+- Data layer: `js/db.js` — REST + Socket.io adapter to WaitSmart backend
+- Auth: `js/auth.js` + `js/api.js` (JWT with auto-refresh)
+- Mapping: `js/mappers.js` — translates backend camelCase to MVP snake_case shapes
 
-Without Firebase, runs in local demo mode (browser storage, auto-seeded).
-
-## Admin capabilities
-
-- Select doctor & date
-- View Now Serving / Booked / Waiting stats
-- Next · Skip · No Show
-- Reset queue
-- Full bookings list with status chips
+The legacy Firebase/localStorage code path has been removed. The previous `web/` UI remains in the repo for reference.

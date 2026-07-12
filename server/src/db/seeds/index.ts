@@ -65,17 +65,28 @@ async function seed() {
     .returning();
   logger.info(`Created admin: ${admin.email}`);
 
-  // 4. Sample clinic
+  // 4. Sample clinics
   const [clinic] = await db
     .insert(clinics)
     .values({
       tenantId: tenant.id,
       name: "Apollo Main Branch",
       address: "123 Health Street, Chennai 600001",
-      hours: "Mon-Sat 9:00-18:00",
+      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
     })
     .returning();
   logger.info(`Created clinic: ${clinic.name}`);
+
+  const [clinic2] = await db
+    .insert(clinics)
+    .values({
+      tenantId: tenant.id,
+      name: "Apollo — Anna Nagar",
+      address: "45 Anna Nagar West, Chennai 600040",
+      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
+    })
+    .returning();
+  logger.info(`Created clinic: ${clinic2.name}`);
 
   // 5. Doctor user
   const doctorPassword = await hashPassword("Doctor@1234");
@@ -105,18 +116,41 @@ async function seed() {
     .returning();
   logger.info(`Created doctor: ${doctor.name}`);
 
-  // 6b. Doctor weekly schedule (Mon–Sat, 9:00–17:00, 15-min slots)
-  await db.insert(doctorSchedules).values(
-    [1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+  const [doctor2] = await db
+    .insert(doctors)
+    .values({
       tenantId: tenant.id,
-      doctorId: doctor.id,
-      dayOfWeek,
-      startTime: "09:00",
-      endTime: "17:00",
-      slotDurationMinutes: 15,
-    })),
+      clinicId: clinic2.id,
+      name: "Dr. Karthik Iyer",
+      specialization: "General Physician",
+      experienceYears: 12,
+    })
+    .returning();
+  logger.info(`Created doctor: ${doctor2.name}`);
+
+  // Doctor weekly schedules (Mon–Sat, 9:00–18:00, 30-min slots — aligns with queue-mvp UI)
+  const scheduleDays = [1, 2, 3, 4, 5, 6];
+  await db.insert(doctorSchedules).values(
+    scheduleDays.flatMap((dayOfWeek) => [
+      {
+        tenantId: tenant.id,
+        doctorId: doctor.id,
+        dayOfWeek,
+        startTime: "09:00",
+        endTime: "18:00",
+        slotDurationMinutes: 30,
+      },
+      {
+        tenantId: tenant.id,
+        doctorId: doctor2.id,
+        dayOfWeek,
+        startTime: "09:00",
+        endTime: "18:00",
+        slotDurationMinutes: 30,
+      },
+    ]),
   );
-  logger.info("Created doctor schedule (Mon–Sat 09:00–17:00)");
+  logger.info("Created doctor schedules (Mon–Sat 09:00–18:00, 30-min slots)");
 
   // 7. Patient user
   const patientPassword = await hashPassword("Patient@1234");
