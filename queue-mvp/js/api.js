@@ -94,3 +94,8 @@ export function get(path, params = {}) {
 export function post(path, body) {
   return api(path, { method: "POST", body });
 }
+
+/** Ping /health so a spun-down free-tier API can wake before the user taps Send OTP. */
+export function wakeApi() {
+  return fetch(`${BASE_URL}/health`).catch(() => {});
+}

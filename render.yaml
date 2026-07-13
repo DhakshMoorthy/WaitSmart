@@ -3,6 +3,8 @@
 ## To deploy: connect your GitHub repo on Render Dashboard → "New Blueprint Instance"
 
 services:
+  # NOTE: free plan spins down after ~15m idle. First request (e.g. Send OTP) can take
+  # 30–60s while the service cold-starts. Upgrade plan or keep-alive /health to avoid this.
   - type: web
     name: waitsmart-api
     runtime: node

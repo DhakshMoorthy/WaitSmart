@@ -1,8 +1,11 @@
-import { post } from "../api.js";
+import { post, wakeApi } from "../api.js";
 import { navigate } from "../router.js";
 import { renderShell } from "../layout.js";
 
 export function renderLogin(root) {
+  // Start API wake during phone entry — Render free tier spins down when idle.
+  wakeApi();
+
   renderShell(root, {
     showHeader: false,
     content: `
