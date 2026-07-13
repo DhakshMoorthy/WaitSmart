@@ -34,7 +34,11 @@ export async function sendOtp(phone: string) {
   await redis.set(key, otp, { EX: OTP_TTL_SECONDS });
   logger.info(`[OTP] Generated for ${phone}: ${otp}`);
 
-  await sendSms({ to: phone, message: `Your WaitSmart OTP is: ${otp}. Valid for 5 minutes.` });
+  // OTP is already stored — don't hold the HTTP response on SMS provider latency.
+  void sendSms({
+    to: phone,
+    message: `Your WaitSmart OTP is: ${otp}. Valid for 5 minutes.`,
+  });
 
   // Return OTP in response when no SMS provider is configured (OTP can't reach user otherwise)
   const smsConfigured = !!(process.env.SMS_PROVIDER && process.env.SMS_API_KEY);

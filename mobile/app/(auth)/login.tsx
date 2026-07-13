@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Start API wake during phone entry — hosted free-tier APIs often spin down when idle.
+  useEffect(() => {
+    api.get("/health").catch(() => {});
+  }, []);
+
   const handleSendOtp = async () => {
     const cleaned = phone.replace(/\s/g, "");
     if (cleaned.length < 10) {
@@ -30,7 +35,12 @@ export default function LoginScreen() {
 
     try {
       const fullPhone = cleaned.startsWith("+91") ? cleaned : `+91${cleaned}`;
-      const { data } = await api.post("/auth/otp/send", { phone: fullPhone });
+      // Free-tier hosts can take 30–60s to cold-start; allow time for that wake.
+      const { data } = await api.post(
+        "/auth/otp/send",
+        { phone: fullPhone },
+        { timeout: 60000 }
+      );
       router.push({
         pathname: "/(auth)/verify",
         params: {
