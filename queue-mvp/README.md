@@ -1,24 +1,29 @@
 # WaitSmart — Live Queue (queue-mvp)
 
-Production frontend for WaitSmart. Mobile-first queue UI connected to the WaitSmart Express/PostgreSQL backend.
+Production frontend for WaitSmart. Mobile-first React UI (migrated from kvt-hospital design) connected to the WaitSmart Express/PostgreSQL/Redis backend on Render.
+
+## Stack
+
+- React 19 + TypeScript + Vite 6 + Tailwind CSS v4
+- WaitSmart API (`VITE_API_URL`) — JWT auth, REST, Socket.io
+- No Firebase — all data from Render backend
 
 ## Features
 
-- **Patient flow** — OTP login, clinic picker, doctor profiles, slot booking, live token tracking
-- **Admin dashboard** — email/password login (admin or doctor role), queue control (Next / Skip / No Show)
-- **Real-time sync** — Socket.io `queue:update` and `booking:created` events
-- **WaitSmart branding** — professional blue medical UI (from queue-mvp)
+- **Patient flow** — OTP gate at login, clinic picker, doctor profiles, dynamic slot booking, live token tracking, saved tokens on home, appointment history at `/track`
+- **Admin dashboard** — staff email/password login, calendar, queue control (Next / Skip / No Show / End)
+- **Real-time sync** — Socket.io `queue:update` and `booking:created` with live badge
+- **WaitSmart branding** — professional blue medical UI
 
 ## Local development
 
 **Terminal 1 — backend** (from repo root):
 
 ```bash
-# Docker Postgres + Redis, or your existing local stack
 cd server && pnpm dev
 ```
 
-API runs at http://localhost:4000
+API runs at http://localhost:4000 (requires `DATABASE_URL` + `REDIS_URL`).
 
 **Terminal 2 — frontend**:
 
@@ -39,55 +44,42 @@ App opens at http://localhost:5173
 | Admin | `/admin` email login | `admin@apollo.waitsmart.app` / `Admin@1234` |
 | Doctor | `/admin` email login | `priya@apollo.waitsmart.app` / `Doctor@1234` |
 
+## Backend limitations (v1)
+
+These kvt-hospital demo features are **not** available without backend changes:
+
+| Feature | Status |
+|---------|--------|
+| Undo last action | Hidden — no API |
+| Reset queue | Hidden — no API |
+| Manual per-appointment status dropdown | Hidden — no PATCH endpoint |
+| Doctor notes on appointments | Hidden — no DB column |
+| Booking file attachments | Hidden — files not linked to appointments |
+| Client-side demo OTP | Replaced by server 6-digit Redis OTP |
+| Admin passcode | Replaced by JWT staff login |
+| Browse/book without login | Replaced by OTP gate (backend requires JWT) |
+
 ## Deploy (production)
 
-### Option A — Render static site (recommended; works on free tier)
+Render static site `waitsmart-web` builds from `queue-mvp/dist` (see root `render.yaml`).
 
-1. Render Dashboard → **New** → **Static Site**
-2. Connect GitHub repo `WaitSmart`
-3. On the **Create Static Site** form only these fields appear:
+| Field | Value |
+|-------|--------|
+| **Build Command** | `npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build` |
+| **Publish Directory** | `queue-mvp/dist` |
 
-   | Field | Value |
-   |-------|--------|
-   | **Name** | `waitsmart-web` |
-   | **Branch** | `main` |
-   | **Build Command** | `npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build` |
-   | **Publish Directory** | `queue-mvp/dist` |
-
-4. Click **Create Static Site** — wait for the first deploy to finish.
-
-5. **Redirects/Rewrites** are *not* on the create form. After the site exists:
-   - Dashboard → click your static site (`waitsmart-web`)
-   - Left menu → **Redirects/Rewrites** → Add Rule:
-     - Source: `/*` → Destination: `/index.html` → Action: **Rewrite**
-
-   If that tab is missing, you may have created a **Web Service** by mistake — delete and recreate as **Static Site**.
-
-6. Add the live URL to Render API `CORS_ORIGINS` on `waitsmart-api` (e.g. `https://waitsmart-web.onrender.com`)
-
-API URL is baked in via `queue-mvp/.env.production` (`VITE_API_URL=https://waitsmart-api.onrender.com`).
-
-### Option B — Vercel (personal account only)
-
-Vercel **Hobby teams** cannot promote production deployments. Use a **personal** Vercel account (not a team), or upgrade to Pro.
-
-1. Move/import project to personal account
-2. Root Directory → `queue-mvp`
-3. Disable Deployment Protection for production
-4. Redeploy
-
-## Deploy (Vercel — if using personal account)
-
-1. Set Vercel project **Root Directory** to `queue-mvp`
-2. Environment variable: `VITE_API_URL=https://waitsmart-api.onrender.com`
-3. Add the Vercel URL to Render `CORS_ORIGINS`
-4. Redeploy Vercel (clear build cache if env changed)
+API URL is set via `queue-mvp/.env.production` (`VITE_API_URL=https://waitsmart-api.onrender.com`).
 
 ## Architecture
 
-- UI pages: `js/pages/*.js` (unchanged queue-mvp screens)
-- Data layer: `js/db.js` — REST + Socket.io adapter to WaitSmart backend
-- Auth: `js/auth.js` + `js/api.js` (JWT with auto-refresh)
-- Mapping: `js/mappers.js` — translates backend camelCase to MVP snake_case shapes
+```
+src/pages/       — React routes (Home, Doctors, Book, Token, Track, Admin, Login, Verify)
+src/components/  — UI components (Header, ClinicCard, LiveBadge, AdminCalendar, …)
+src/lib/db.ts    — Backend adapter (kvt-compatible API surface → REST + Socket.io)
+src/lib/api.ts   — fetch wrapper, JWT refresh, wakeApi()
+src/lib/auth.ts  — localStorage JWT state
+src/lib/mappers.ts — camelCase → snake_case, slot grouping
+src/lib/socket.ts  — Socket.io client
+```
 
-The legacy Firebase/localStorage code path has been removed. The previous `web/` UI remains in the repo for reference.
+The legacy vanilla JS frontend (`js/`, `css/`) has been replaced by this React app.
