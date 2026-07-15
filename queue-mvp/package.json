@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --open",
+    "prebuild": "pnpm --filter @waitsmart/shared build",
     "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview --port 5173",
     "start": "vite --port 5173 --open",

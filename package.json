@@ -9,7 +9,7 @@
     "dev:mobile": "pnpm --filter @waitsmart/mobile start",
     "dev:mvp": "pnpm --filter waitsmart-queue-mvp dev",
     "start:mvp": "pnpm --filter waitsmart-queue-mvp start",
-    "build:mvp": "pnpm --filter waitsmart-queue-mvp build",
+    "build:mvp": "pnpm --filter @waitsmart/shared build && pnpm --filter waitsmart-queue-mvp build",
     "build": "pnpm -r build",
     "build:deploy": "pnpm --filter @waitsmart/shared build && pnpm --filter @waitsmart/server build",
     "db:generate": "pnpm --filter @waitsmart/server db:generate",

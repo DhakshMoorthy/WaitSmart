@@ -43,7 +43,7 @@ services:
     runtime: static
     region: singapore
     plan: free
-    buildCommand: npm install -g pnpm@9.15.4 && cd queue-mvp && pnpm install && pnpm build
+    buildCommand: npm install -g pnpm@9.15.4 && pnpm install && pnpm --filter @waitsmart/shared build && pnpm --filter waitsmart-queue-mvp build
     staticPublishPath: ./queue-mvp/dist
     routes:
       - type: rewrite
