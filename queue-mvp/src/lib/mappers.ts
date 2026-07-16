@@ -89,6 +89,8 @@ interface BackendAppointment {
   tokenNumber: number;
   status: string;
   symptoms?: string;
+  doctorNotes?: string | null;
+  fileId?: string | null;
   createdAt?: string;
 }
 
@@ -114,6 +116,9 @@ export function mapAppointment(
     status: mapStatus(rawStatus),
     _rawStatus: rawStatus,
     notes: appointment.symptoms || '',
+    doctor_notes: appointment.doctorNotes || undefined,
+    attachment_name: appointment.fileId ? 'Attached file' : undefined,
+    attachment_data: appointment.fileId || undefined,
     created_at: appointment.createdAt || new Date().toISOString(),
     _slotId: slot?.id,
   };
@@ -129,6 +134,8 @@ export function mapHistoryItem(item: {
   slotTime: string;
   patientName: string;
   symptoms?: string;
+  doctorNotes?: string | null;
+  fileId?: string | null;
   clinicId?: string;
   patientPhone?: string;
 }): Appointment {
@@ -148,6 +155,9 @@ export function mapHistoryItem(item: {
     status: mapStatus(item.status),
     _rawStatus: item.status,
     notes: item.symptoms || '',
+    doctor_notes: item.doctorNotes || undefined,
+    attachment_name: item.fileId ? 'Attached file' : undefined,
+    attachment_data: item.fileId || undefined,
     created_at: '',
   };
 }
@@ -156,16 +166,34 @@ export function buildQueueFromAppointments(
   doctorId: string,
   date: string,
   appointments: Appointment[],
+  queueState?: {
+    currentSlot?: number;
+    lastAction?: {
+      appointmentId: string | null;
+      previousStatus: string;
+      previousCurrentSlot: number;
+      previousSessionEnded: boolean;
+    } | null;
+  } | null,
 ) {
   const inCabin = appointments.find((a) => a._rawStatus === 'in-cabin');
   const nowServing = inCabin?.token ?? 0;
   const maxToken = appointments.reduce((max, a) => Math.max(max, a.token || 0), 0);
 
+  const last = queueState?.lastAction;
   return {
     doctor_id: doctorId,
     date,
     current_token: nowServing,
     last_token: maxToken,
+    last_action: last
+      ? {
+          appointment_id: last.appointmentId || '',
+          previous_status: mapStatus(last.previousStatus),
+          previous_current_token: last.previousCurrentSlot,
+          previous_session_ended: last.previousSessionEnded,
+        }
+      : null,
   };
 }
 

@@ -4,6 +4,7 @@ import { doctors } from "./doctors.js";
 import { clinics } from "./clinics.js";
 import { slots } from "./slots.js";
 import { users } from "./users.js";
+import { files } from "./files.js";
 
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "waiting",
@@ -34,6 +35,8 @@ export const appointments = pgTable(
     patientName: text("patient_name").notNull(),
     patientPhone: text("patient_phone"),
     symptoms: text("symptoms"),
+    doctorNotes: text("doctor_notes"),
+    fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
     tokenNumber: integer("token_number").notNull(),
     status: appointmentStatusEnum("status").notNull().default("waiting"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

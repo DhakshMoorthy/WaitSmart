@@ -6,6 +6,7 @@ import {
   doctors,
   doctorSchedules,
   doctorBreaks,
+  queueState,
 } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import { getIO } from "../../socket/index.js";
@@ -72,7 +73,22 @@ export async function getAvailability(tenantId: string, doctorId: string, date: 
     }),
   );
 
-  return { doctorId, date, slots: slotsWithAppointments };
+  const state = await db.query.queueState.findFirst({
+    where: and(eq(queueState.doctorId, doctorId), eq(queueState.date, date)),
+  });
+
+  return {
+    doctorId,
+    date,
+    slots: slotsWithAppointments,
+    queueState: state
+      ? {
+          currentSlot: state.currentSlot,
+          lastSlot: state.lastSlot,
+          lastAction: state.lastAction,
+        }
+      : null,
+  };
 }
 
 async function generateSlots(
@@ -160,6 +176,7 @@ export async function createBooking(
       patientName: input.patientName,
       patientPhone: input.patientPhone,
       symptoms: input.symptoms,
+      fileId: input.fileId,
       tokenNumber,
       status: "waiting",
     })
@@ -230,6 +247,7 @@ export async function rescheduleBooking(
     patientName: appointment.patientName,
     patientPhone: appointment.patientPhone ?? undefined,
     symptoms: appointment.symptoms ?? undefined,
+    fileId: appointment.fileId ?? undefined,
   });
 
   return newAppointment;

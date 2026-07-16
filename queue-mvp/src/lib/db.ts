@@ -1,5 +1,5 @@
-import { get, post, wakeApi } from './api';
-import { getAuth, hydrate } from './auth';
+import { get, post, patch, del, uploadFile, apiBaseUrl, wakeApi } from './api';
+import { getAuth, hydrate, setUser } from './auth';
 import {
   connectSocket,
   getSocket,
@@ -18,8 +18,8 @@ import {
 } from './mappers';
 import { todayStr } from './dates';
 import { SAVED_TOKENS_KEY } from './constants';
-import { normalizePhone } from './phone';
-import type { Appointment, Queue, QueueStats, SavedToken } from './types';
+import { normalizePhone, toE164 } from './phone';
+import type { Appointment, AppointmentStatus, Queue, QueueStats, SavedToken } from './types';
 
 export const isFirebaseConfigured = false;
 export const usingFirebase = false;
@@ -46,6 +46,12 @@ function saveApptToCache(appt: Appointment) {
 
 function getFromCache(id: string): Appointment | null {
   return loadApptCache()[id] || null;
+}
+
+function removeFromCache(id: string) {
+  const cache = loadApptCache();
+  delete cache[id];
+  localStorage.setItem(APPT_CACHE_KEY, JSON.stringify(cache));
 }
 
 async function fetchAvail(doctorId: string, date: string) {
@@ -76,7 +82,7 @@ async function fetchDoctorDay(doctorId: string, date: string) {
       mapAppointment(s.appointment, s, totalSlots),
     );
 
-  const queue = buildQueueFromAppointments(doctorId, date, appointments);
+  const queue = buildQueueFromAppointments(doctorId, date, appointments, avail.queueState);
   const stats = toKvtQueueStats(queue, appointments);
 
   return { queue, appointments, stats, duration, slots };
@@ -243,6 +249,77 @@ export async function getAppointmentsByPhone(phone: string): Promise<Appointment
     });
 }
 
+// ─── Patient profile / favorites / family ───────────────────────────
+
+export async function getPatientProfile() {
+  const res = await get('/patients/profile');
+  return res.data;
+}
+
+export async function updatePatientProfile(input: { name?: string; phone?: string }) {
+  const body: { name?: string; phone?: string } = {};
+  if (input.name) body.name = input.name;
+  if (input.phone) body.phone = toE164(input.phone);
+  const res = await patch('/patients/profile', body);
+  const profile = res.data;
+  const { user } = getAuth();
+  if (user && profile) {
+    setUser({
+      ...user,
+      name: profile.name ?? user.name,
+      phone: profile.phone ?? user.phone,
+    });
+  }
+  return profile;
+}
+
+export async function getFavoriteDoctors() {
+  const res = await get('/patients/favorites');
+  const doctors = res.data || [];
+  return Promise.all(
+    doctors.map(async (d: Parameters<typeof mapDoctor>[0]) =>
+      mapDoctor(d, await getDoctorSlotDuration(d.id)),
+    ),
+  );
+}
+
+export async function addFavoriteDoctor(doctorId: string) {
+  await post('/patients/favorites', { doctorId });
+}
+
+export async function removeFavoriteDoctor(doctorId: string) {
+  await del(`/patients/favorites/${doctorId}`);
+}
+
+export async function getFamilyMembers() {
+  const res = await get('/patients/family');
+  return res.data || [];
+}
+
+export async function addFamilyMember(input: {
+  name: string;
+  relationship: string;
+  age?: number;
+  phone?: string;
+}) {
+  const res = await post('/patients/family', {
+    name: input.name,
+    relationship: input.relationship,
+    age: input.age,
+    phone: input.phone ? toE164(input.phone) : undefined,
+  });
+  return res.data;
+}
+
+export function fileUrl(fileId: string) {
+  return `${apiBaseUrl()}/files/${fileId}`;
+}
+
+export async function uploadAppointmentFile(file: File) {
+  const res = await uploadFile(file);
+  return res.data as { id: string; filename: string; mimeType: string };
+}
+
 // ─── Saved tokens (local) ───────────────────────────────────────────
 
 export function getSavedTokens(): SavedToken[] {
@@ -271,6 +348,11 @@ export function saveTokenLocally(appointment: Appointment) {
   localStorage.setItem(SAVED_TOKENS_KEY, JSON.stringify(filtered.slice(0, 10)));
 }
 
+function removeSavedToken(appointmentId: string) {
+  const tokens = getSavedTokens().filter((t) => t.appointmentId !== appointmentId);
+  localStorage.setItem(SAVED_TOKENS_KEY, JSON.stringify(tokens));
+}
+
 // ─── Writes ─────────────────────────────────────────────────────────
 
 export async function bookAppointment(input: {
@@ -281,8 +363,9 @@ export async function bookAppointment(input: {
   date: string;
   slotTime: string;
   notes?: string;
+  fileId?: string;
 }) {
-  const { doctorId, date, slotTime, name, clinicId, notes, phone } = input;
+  const { doctorId, date, slotTime, name, clinicId, notes, phone, fileId } = input;
   invalidateAvailCache(doctorId, date);
   const avail = await fetchAvail(doctorId, date);
   const slots = avail.slots || [];
@@ -303,12 +386,35 @@ export async function bookAppointment(input: {
     patientName: name,
     patientPhone: phone || user?.phone || undefined,
     symptoms: notes || undefined,
+    fileId: fileId || undefined,
   });
 
   const appointment = mapAppointment(res.data, slot, slots.length);
   saveApptToCache(appointment);
   saveTokenLocally(appointment);
   return appointment;
+}
+
+export async function cancelAppointment(appointmentId: string) {
+  const cached = getFromCache(appointmentId);
+  const res = await post('/cancel', { appointmentId });
+  if (cached) {
+    invalidateAvailCache(cached.doctor_id, cached.date);
+  }
+  removeFromCache(appointmentId);
+  removeSavedToken(appointmentId);
+  return res.data;
+}
+
+export async function rescheduleAppointment(appointmentId: string, newSlotId: string) {
+  const cached = getFromCache(appointmentId);
+  const res = await post('/reschedule', { appointmentId, newSlotId });
+  if (cached) {
+    invalidateAvailCache(cached.doctor_id, cached.date);
+    removeFromCache(appointmentId);
+    removeSavedToken(appointmentId);
+  }
+  return res.data;
 }
 
 async function adminAction(action: string, doctorId: string, date: string) {
@@ -333,20 +439,35 @@ export async function markNoShow(doctorId: string, date: string) {
   return adminAction('no-show', doctorId, date);
 }
 
-export async function undoLastAction(): Promise<void> {
-  throw new Error('Undo is not supported by the backend.');
+export async function undoLastAction(doctorId: string, date: string) {
+  return adminAction('undo', doctorId, date);
 }
 
-export async function resetQueue(): Promise<void> {
-  throw new Error('Reset queue is not supported by the backend.');
+export async function resetQueue(doctorId: string, date: string) {
+  return adminAction('reset', doctorId, date);
 }
 
-export async function updateDoctorNotes(): Promise<void> {
-  /* no-op — backend has no doctor_notes column */
+export async function updateDoctorNotes(appointmentId: string, doctorNotes: string) {
+  const res = await patch('/admin/doctor-notes', {
+    appointmentId,
+    doctorNotes: doctorNotes.trim() || null,
+  });
+  return res.data;
 }
 
-export async function updateAppointmentStatusAdmin(): Promise<void> {
-  /* no-op — backend has no per-appointment status PATCH */
+export async function updateAppointmentStatusAdmin(
+  appointmentId: string,
+  status: AppointmentStatus,
+  doctorId: string,
+  date: string,
+) {
+  invalidateAvailCache(doctorId, date);
+  const backendStatus = status === 'no_show' ? 'no-show' : status;
+  const res = await patch('/admin/appointment-status', {
+    appointmentId,
+    status: backendStatus,
+  });
+  return res.data;
 }
 
 // ─── Real-time subscriptions ────────────────────────────────────────

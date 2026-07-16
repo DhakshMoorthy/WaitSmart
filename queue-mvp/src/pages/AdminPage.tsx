@@ -6,8 +6,12 @@ import {
   getDoctors,
   getQueueStats,
   markNoShow,
+  resetQueue,
   subscribeAppointments,
   subscribeQueue,
+  undoLastAction,
+  updateAppointmentStatusAdmin,
+  updateDoctorNotes,
 } from '../lib/db';
 import { post } from '../lib/api';
 import { logout, setTokens, setUser } from '../lib/auth';
@@ -20,7 +24,7 @@ import {
   statusLabel,
 } from '../lib/slotUtils';
 import { formatPhoneDisplay } from '../lib/phone';
-import type { Appointment, Doctor, Queue } from '../lib/types';
+import type { Appointment, AppointmentStatus, Doctor, Queue } from '../lib/types';
 import AdminCalendar from '../components/AdminCalendar';
 import LiveBadge from '../components/LiveBadge';
 import {
@@ -28,11 +32,22 @@ import {
   Loader2,
   LogOut,
   Radio,
+  RotateCcw,
   SkipForward,
   Square,
+  Undo2,
   UserX,
   Users,
 } from 'lucide-react';
+
+const STATUS_OPTIONS: AppointmentStatus[] = [
+  'waiting',
+  'in-cabin',
+  'done',
+  'skipped',
+  'no_show',
+  'cancelled',
+];
 
 export default function AdminPage() {
   const isAdmin = useIsAdmin();
@@ -56,7 +71,12 @@ export default function AdminPage() {
   });
   const [bookingCounts, setBookingCounts] = useState<Record<string, number>>({});
   const [actionLoading, setActionLoading] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [cabinNotes, setCabinNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
+  const [editNotes, setEditNotes] = useState('');
 
   const calendarDays = useMemo(() => getCalendarDays(14, 14), []);
   const todayIso = calendarDays.find((d) => d.isToday)?.iso ?? calendarDays[14]?.iso ?? '';
@@ -142,7 +162,7 @@ export default function AdminPage() {
     setPassword('');
   };
 
-  const runAction = async (fn: () => Promise<void>) => {
+  const runAction = async (fn: () => Promise<unknown>) => {
     if (!selectedDoctor || !selectedDate) return;
     setActionLoading(true);
     setActionError('');
@@ -155,6 +175,23 @@ export default function AdminPage() {
     }
   };
 
+  const handleReset = async () => {
+    if (!resetConfirm) {
+      setResetConfirm(true);
+      return;
+    }
+    await runAction(async () => {
+      await resetQueue(selectedDoctor, selectedDate);
+      setResetConfirm(false);
+    });
+  };
+
+  const handleStatusChange = async (aptId: string, status: AppointmentStatus) => {
+    await runAction(async () => {
+      await updateAppointmentStatusAdmin(aptId, status, selectedDoctor, selectedDate);
+    });
+  };
+
   const currentToken = queue?.current_token ?? 0;
   const sessionEnded = queue?.session_ended ?? stats.sessionEnded;
   const activePatient =
@@ -164,12 +201,57 @@ export default function AdminPage() {
           (a) => a.token === currentToken && a.status === 'waiting',
         ) ?? null
       : null);
+  const canUndo = Boolean(queue?.last_action);
   const noWaiting = stats.waiting === 0;
   const nextDisabled =
     isHistoryView || actionLoading || sessionEnded || (noWaiting && !activePatient);
   const skipDisabled = isHistoryView || actionLoading || sessionEnded || !activePatient;
   const endDisabled = isHistoryView || actionLoading || sessionEnded || stats.booked === 0;
   const noShowDisabled = skipDisabled;
+
+  useEffect(() => {
+    if (activePatient) {
+      setCabinNotes(activePatient.doctor_notes ?? '');
+    } else {
+      setCabinNotes('');
+    }
+  }, [activePatient?.id, activePatient?.doctor_notes]);
+
+  const saveCabinNotes = async () => {
+    if (!activePatient) return;
+    setNotesSaving(true);
+    try {
+      await updateDoctorNotes(activePatient.id, cabinNotes);
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  const saveHistoryNotes = async (aptId: string) => {
+    setNotesSaving(true);
+    try {
+      await updateDoctorNotes(aptId, editNotes);
+      setExpandedNotesId(null);
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
+  const handleNext = async () => {
+    if (!selectedDoctor || !selectedDate) return;
+    setActionLoading(true);
+    setActionError('');
+    try {
+      if (activePatient && cabinNotes.trim()) {
+        await updateDoctorNotes(activePatient.id, cabinNotes);
+      }
+      await advanceQueue(selectedDoctor, selectedDate, 'next');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (!authenticated) {
     return (
@@ -329,6 +411,27 @@ export default function AdminPage() {
                 </p>
               )}
             </div>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">
+                Doctor notes (saved to history)
+              </label>
+              <textarea
+                value={cabinNotes}
+                onChange={(e) => setCabinNotes(e.target.value)}
+                placeholder="Add consultation notes before clicking Next…"
+                rows={3}
+                disabled={isHistoryView}
+                className="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                disabled={notesSaving || isHistoryView}
+                onClick={saveCabinNotes}
+                className="mt-1.5 text-xs font-semibold text-primary hover:underline disabled:opacity-50"
+              >
+                {notesSaving ? 'Saving…' : 'Save notes'}
+              </button>
+            </div>
           </div>
         ) : (
           <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
@@ -348,7 +451,7 @@ export default function AdminPage() {
           <button
             type="button"
             disabled={nextDisabled}
-            onClick={() => runAction(() => advanceQueue(selectedDoctor, selectedDate, 'next'))}
+            onClick={handleNext}
             className="rounded-xl bg-primary py-3 text-xs font-bold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
           >
             {actionLoading ? <Loader2 className="mx-auto h-4 w-4 animate-spin" /> : 'NEXT'}
@@ -381,6 +484,31 @@ export default function AdminPage() {
             END
           </button>
         </div>
+
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            disabled={isHistoryView || actionLoading || !canUndo}
+            onClick={() => runAction(() => undoLastAction(selectedDoctor, selectedDate))}
+            className="flex flex-1 items-center justify-center gap-1 rounded-xl border border-primary/30 bg-primary-light py-2 text-xs font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            Undo last action
+          </button>
+          <button
+            type="button"
+            disabled={isHistoryView || actionLoading}
+            onClick={handleReset}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-xl border py-2 text-xs font-semibold disabled:opacity-40 ${
+              resetConfirm
+                ? 'border-red-300 bg-red-50 text-red-600'
+                : 'border-slate-200 text-slate-500 hover:text-red-500'
+            }`}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            {resetConfirm ? 'Confirm reset' : 'Reset queue'}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl bg-white p-4 card-shadow">
@@ -388,6 +516,9 @@ export default function AdminPage() {
           <Users className="h-4 w-4 text-primary" />
           Bookings {isHistoryView ? 'history' : ''} — {selectedDoc?.name}
         </h2>
+        <p className="mb-3 text-[10px] text-slate-400">
+          Tap status to fix accidental next/skip
+        </p>
         {appointments.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-400">No bookings for this date.</p>
         ) : (
@@ -415,13 +546,65 @@ export default function AdminPage() {
                         {apt.notes}
                       </p>
                     )}
+                    {apt.doctor_notes && expandedNotesId !== apt.id && (
+                      <p className="mt-1 text-[10px] text-primary">
+                        <span className="font-semibold">Doctor: </span>
+                        {apt.doctor_notes}
+                      </p>
+                    )}
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColor(apt.status)}`}
+                  <select
+                    value={apt.status}
+                    onChange={(e) =>
+                      handleStatusChange(apt.id, e.target.value as AppointmentStatus)
+                    }
+                    disabled={actionLoading || isHistoryView}
+                    className={`shrink-0 rounded-full border-0 px-2 py-0.5 text-[10px] font-semibold outline-none ${statusColor(apt.status)}`}
                   >
-                    {statusLabel(apt.status)}
-                  </span>
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s} value={s}>
+                        {statusLabel(s)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (expandedNotesId === apt.id) {
+                      setExpandedNotesId(null);
+                    } else {
+                      setExpandedNotesId(apt.id);
+                      setEditNotes(apt.doctor_notes ?? '');
+                    }
+                  }}
+                  className="mt-2 text-[10px] font-semibold text-primary hover:underline"
+                >
+                  {expandedNotesId === apt.id
+                    ? 'Cancel'
+                    : apt.doctor_notes
+                      ? 'Edit doctor notes'
+                      : 'Add doctor notes'}
+                </button>
+                {expandedNotesId === apt.id && (
+                  <div className="mt-2 border-t border-slate-100 pt-2">
+                    <textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Consultation notes for history…"
+                      rows={2}
+                      className="w-full resize-none rounded-lg border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      disabled={notesSaving}
+                      onClick={() => saveHistoryNotes(apt.id)}
+                      className="mt-1 text-[10px] font-semibold text-primary disabled:opacity-50"
+                    >
+                      {notesSaving ? 'Saving…' : 'Save to history'}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

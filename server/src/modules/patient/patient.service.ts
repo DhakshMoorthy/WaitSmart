@@ -51,10 +51,14 @@ export async function getHistory(userId: string, tenantId: string) {
         status: appt.status,
         doctorId: appt.doctorId,
         doctorName: doctor?.name ?? "Doctor",
+        clinicId: appt.clinicId,
         date: slot?.date ?? null,
         slotTime: slot?.slotTime ?? null,
         patientName: appt.patientName,
+        patientPhone: appt.patientPhone,
         symptoms: appt.symptoms,
+        doctorNotes: appt.doctorNotes,
+        fileId: appt.fileId,
       };
     }),
   );

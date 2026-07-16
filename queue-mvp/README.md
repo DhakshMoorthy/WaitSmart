@@ -10,8 +10,8 @@ Production frontend for WaitSmart. Mobile-first React UI (migrated from kvt-hosp
 
 ## Features
 
-- **Patient flow** — OTP gate at login, clinic picker, doctor profiles, dynamic slot booking, live token tracking, saved tokens on home, appointment history at `/track`
-- **Admin dashboard** — staff email/password login, calendar, queue control (Next / Skip / No Show / End)
+- **Patient flow** — OTP gate, clinic picker, doctor profiles with favorites, dynamic slot booking (family + attachments), live token tracking, cancel/reschedule, saved tokens, appointment history, profile
+- **Admin dashboard** — staff email/password login, calendar, queue control (Next / Skip / No Show / End / Undo / Reset), doctor notes, per-appointment status
 - **Real-time sync** — Socket.io `queue:update` and `booking:created` with live badge
 - **WaitSmart branding** — professional blue medical UI
 
@@ -46,18 +46,20 @@ App opens at http://localhost:5173
 
 ## Backend limitations (v1)
 
-These kvt-hospital demo features are **not** available without backend changes:
+These are intentional product gaps (not missing wiring):
 
 | Feature | Status |
 |---------|--------|
-| Undo last action | Hidden — no API |
-| Reset queue | Hidden — no API |
-| Manual per-appointment status dropdown | Hidden — no PATCH endpoint |
-| Doctor notes on appointments | Hidden — no DB column |
-| Booking file attachments | Hidden — files not linked to appointments |
+| Clinic / doctor CRUD admin UI | API exists — no MVP admin settings UI yet |
+| Analytics / billing dashboards | API exists — not in patient/doctor MVP |
+| Tenant superadmin console | API exists — out of MVP scope |
 | Client-side demo OTP | Replaced by server 6-digit Redis OTP |
 | Admin passcode | Replaced by JWT staff login |
 | Browse/book without login | Replaced by OTP gate (backend requires JWT) |
+
+## Now wired end-to-end
+
+Cancel, reschedule, profile, favorites, family members, file attachments, undo, reset queue, doctor notes, and per-appointment status updates.
 
 ## Deploy (production)
 

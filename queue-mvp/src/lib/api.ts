@@ -116,7 +116,38 @@ export function post(path: string, body: unknown) {
   return api(path, { method: 'POST', body });
 }
 
+export function patch(path: string, body: unknown) {
+  return api(path, { method: 'PATCH', body });
+}
+
+export function del(path: string) {
+  return api(path, { method: 'DELETE' });
+}
+
+/** Multipart upload — do not set Content-Type (browser sets boundary). */
+export async function uploadFile(file: File) {
+  const { accessToken } = getAuth();
+  const form = new FormData();
+  form.append('file', file);
+
+  const res = await fetch(`${BASE_URL}/files/upload`, {
+    method: 'POST',
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    body: form,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || `Upload failed: ${res.status}`);
+  }
+  return res.json();
+}
+
 /** Ping /health so a spun-down free-tier API can wake before the user taps Send OTP. */
 export function wakeApi() {
   return fetch(`${BASE_URL}/health`).catch(() => {});
+}
+
+export function apiBaseUrl() {
+  return BASE_URL;
 }

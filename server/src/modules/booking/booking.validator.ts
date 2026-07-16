@@ -12,6 +12,7 @@ export const createBookingBody = z.object({
   patientName: z.string().min(2).max(200),
   patientPhone: z.string().regex(/^\+?[1-9]\d{9,14}$/).optional(),
   symptoms: z.string().max(1000).optional(),
+  fileId: z.string().uuid().optional(),
 });
 
 export const cancelBookingBody = z.object({

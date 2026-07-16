@@ -1,6 +1,17 @@
-import { pgTable, uuid, integer, timestamp, date, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, timestamp, date, index, unique, jsonb } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants.js";
 import { doctors } from "./doctors.js";
+
+/** Snapshot used by POST /admin/undo to reverse the last queue action. */
+export type QueueLastAction = {
+  appointmentId: string | null;
+  previousStatus: string;
+  previousCurrentSlot: number;
+  previousSessionEnded: boolean;
+  /** Extra appointment restored on undo (e.g. previous in-cabin marked done by next). */
+  secondaryAppointmentId?: string | null;
+  secondaryPreviousStatus?: string | null;
+};
 
 export const queueState = pgTable(
   "queue_state",
@@ -15,6 +26,7 @@ export const queueState = pgTable(
     date: date("date").notNull(),
     currentSlot: integer("current_slot").notNull().default(0),
     lastSlot: integer("last_slot").notNull().default(0),
+    lastAction: jsonb("last_action").$type<QueueLastAction | null>(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({

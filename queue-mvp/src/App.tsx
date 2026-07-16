@@ -12,6 +12,7 @@ import TrackPage from './pages/TrackPage';
 import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import VerifyPage from './pages/VerifyPage';
+import ProfilePage from './pages/ProfilePage';
 import LoadingScreen from './components/LoadingScreen';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -112,6 +113,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <TrackPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

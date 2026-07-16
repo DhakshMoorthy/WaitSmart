@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatPhoneDisplay } from '../lib/phone';
 import {
   Clock,
@@ -9,13 +9,19 @@ import {
   RefreshCw,
   User,
   FileText,
+  XCircle,
+  CalendarClock,
+  Paperclip,
 } from 'lucide-react';
 import {
+  cancelAppointment,
+  fileUrl,
   getAppointment,
   getDoctor,
   subscribeAppointments,
   subscribeQueue,
 } from '../lib/db';
+import { getAuth } from '../lib/auth';
 import { HOURS_DISPLAY } from '../lib/constants';
 import {
   estimateWaitMinutes,
@@ -29,11 +35,14 @@ import LiveBadge from '../components/LiveBadge';
 
 export default function TokenPage() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
+  const navigate = useNavigate();
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [cancelling, setCancelling] = useState(false);
+  const [actionError, setActionError] = useState('');
   useMinuteTick();
 
   useEffect(() => {
@@ -94,10 +103,14 @@ export default function TokenPage() {
       appointment.token === currentToken &&
       appointment.status === 'waiting');
   const isDone = appointment.status === 'done';
+  const isCancelled = appointment.status === 'cancelled';
+  const canCancel =
+    appointment.status === 'waiting' && appointment._rawStatus !== 'in-cabin';
   const sessionEnded = queue?.session_ended ?? false;
 
   let waitDisplay = getWaitLabel(waitMinutes);
   if (isDone) waitDisplay = 'Done';
+  else if (isCancelled) waitDisplay = 'Cancelled';
   else if (isYourTurn) waitDisplay = 'Now — your turn';
   else if (sessionEnded && appointment.status === 'waiting') {
     waitDisplay = 'Session ended';
@@ -111,6 +124,37 @@ export default function TokenPage() {
   const waitSubLabel = slotStillFuture
     ? 'Time left until your slot'
     : 'Est. queue wait';
+
+  const handleOpenAttachment = async () => {
+    if (!appointment?.attachment_data) return;
+    try {
+      const { accessToken } = getAuth();
+      const res = await fetch(fileUrl(appointment.attachment_data), {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      });
+      if (!res.ok) throw new Error('Could not open file');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not open file');
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!canCancel || !appointmentId) return;
+    if (!window.confirm('Cancel this appointment?')) return;
+    setCancelling(true);
+    setActionError('');
+    try {
+      await cancelAppointment(appointmentId);
+      navigate('/track');
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Cancel failed');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -204,6 +248,42 @@ export default function TokenPage() {
             Description
           </div>
           <p className="text-sm text-slate-600">{appointment.notes}</p>
+        </div>
+      )}
+
+      {appointment.attachment_data && (
+        <button
+          type="button"
+          onClick={handleOpenAttachment}
+          className="flex w-full items-center gap-2 rounded-2xl bg-white p-4 text-sm font-medium text-primary card-shadow hover:bg-primary-light/40"
+        >
+          <Paperclip className="h-4 w-4" />
+          View attached file
+        </button>
+      )}
+
+      {actionError && (
+        <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{actionError}</p>
+      )}
+
+      {canCancel && (
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            to={`/book/${appointment.doctor_id}?clinic=${appointment.clinic_id}&reschedule=${appointment.id}`}
+            className="flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary-light py-3 text-sm font-medium text-primary"
+          >
+            <CalendarClock className="h-4 w-4" />
+            Reschedule
+          </Link>
+          <button
+            type="button"
+            disabled={cancelling}
+            onClick={handleCancel}
+            className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-medium text-red-600 disabled:opacity-50"
+          >
+            <XCircle className="h-4 w-4" />
+            {cancelling ? 'Cancelling…' : 'Cancel'}
+          </button>
         </div>
       )}
 

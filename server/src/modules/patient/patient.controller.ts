@@ -54,6 +54,15 @@ export async function addFavorite(req: AuthedRequest, res: Response, next: NextF
   }
 }
 
+export async function removeFavorite(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const data = await patientService.removeFavorite(req.user!.userId, req.params.doctorId);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getFamily(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
     const tenantId = tenantScope(req);

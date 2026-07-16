@@ -12,5 +12,6 @@ patientRouter.patch("/profile", patientController.updateProfile);
 patientRouter.get("/history", patientController.getHistory);
 patientRouter.get("/favorites", patientController.getFavorites);
 patientRouter.post("/favorites", patientController.addFavorite);
+patientRouter.delete("/favorites/:doctorId", patientController.removeFavorite);
 patientRouter.get("/family", patientController.getFamily);
 patientRouter.post("/family", patientController.addFamilyMember);
