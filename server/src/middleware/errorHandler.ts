@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
+import { MulterError } from "multer";
 import { AppError } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 
@@ -13,6 +14,14 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
       message: "Validation failed",
       code: "VALIDATION_ERROR",
       details: err.flatten(),
+    });
+  }
+
+  if (err instanceof MulterError) {
+    const tooBig = err.code === "LIMIT_FILE_SIZE";
+    return res.status(tooBig ? 413 : 400).json({
+      message: tooBig ? "File too large (max 10MB)" : "Invalid upload",
+      code: tooBig ? "FILE_TOO_LARGE" : "INVALID_UPLOAD",
     });
   }
 

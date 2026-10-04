@@ -22,7 +22,13 @@ export async function serve(req: AuthedRequest, res: Response, next: NextFunctio
     const tenantId = tenantScope(req);
     const { buffer, mimeType, filename } = await fileService.serveFile(tenantId, req.params.id);
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    // RFC 6266: ASCII fallback + UTF-8 name, so no raw user input is ever placed in the header.
+    const ascii = filename.replace(/[^ -~]/g, "_").replace(/["\\]/g, "_");
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
+    res.setHeader("X-Content-Type-Options", "nosniff");
     res.send(buffer);
   } catch (err) {
     next(err);

@@ -17,6 +17,13 @@ export const otpSendBody = z.object({
 export const otpVerifyBody = z.object({
   phone: phoneSchema,
   otp: z.string().length(6),
+  // Which clinic a brand-new patient joins (slug or subdomain). Optional: falls back to the default clinic.
+  tenantSlug: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerBody>;

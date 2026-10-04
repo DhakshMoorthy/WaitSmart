@@ -26,6 +26,10 @@ const envSchema = z.object({
   SMS_PROVIDER: z.enum(["msg91", "twilio", ""]).optional(),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),
+  SMS_TEMPLATE_ID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  // Clinic that new phone/OTP patients join when the client does not say which clinic.
+  DEFAULT_TENANT_SLUG: z.string().default("apollo-clinic"),
   // Object storage (Oracle OCI / S3-compatible)
   STORAGE_PROVIDER: z.enum(["oci", "s3", ""]).optional(),
   STORAGE_BUCKET: z.string().optional(),

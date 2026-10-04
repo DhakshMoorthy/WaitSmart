@@ -49,7 +49,7 @@ export async function otpSend(req: Request, res: Response, next: NextFunction) {
 export async function otpVerify(req: Request, res: Response, next: NextFunction) {
   try {
     const input = otpVerifyBody.parse(req.body);
-    const result = await verifyAndLogin(input.phone, input.otp);
+    const result = await verifyAndLogin(input.phone, input.otp, input.tenantSlug);
     res.json(result);
   } catch (err) {
     next(err);

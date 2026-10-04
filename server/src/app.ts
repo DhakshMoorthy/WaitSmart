@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { env } from "./config/env.js";
 import { corsOriginCallback } from "./config/corsPolicy.js";
 import { apiRateLimiter } from "./middleware/rateLimiter.js";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
@@ -17,6 +18,12 @@ import { patientRouter } from "./modules/patient/patient.router.js";
 import { fileRouter } from "./modules/file/file.router.js";
 
 export const app = express();
+
+// Behind Render's load balancer the client IP arrives in X-Forwarded-For. Without this every
+// visitor shares the proxy's IP and the rate limiters throttle everyone together.
+if (env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 app.use(helmet());
 app.use(cors({ origin: corsOriginCallback, credentials: true }));
