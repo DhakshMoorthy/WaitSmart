@@ -19,12 +19,20 @@ async function main() {
     );
     if (exists.rows[0]?.table_name) {
       console.log("Test schema already present");
-      return;
+    } else {
+      const sql = readFileSync(resolve(__dirname, "schema.sql"), "utf8");
+      await client.query(sql);
+      console.log("Applied test schema");
     }
 
-    const sql = readFileSync(resolve(__dirname, "schema.sql"), "utf8");
-    await client.query(sql);
-    console.log("Applied test schema");
+    // schema.sql is a snapshot of 0000_initial; later migrations must be layered on top.
+    // They are written to be idempotent (IF NOT EXISTS), so this is safe on every run.
+    const parity = readFileSync(
+      resolve(__dirname, "../src/db/migrations/0001_queue_parity.sql"),
+      "utf8",
+    );
+    await client.query(parity);
+    console.log("Applied migration 0001_queue_parity");
   } finally {
     client.release();
     await pool.end();

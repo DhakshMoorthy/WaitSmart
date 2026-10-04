@@ -1,10 +1,6 @@
 import crypto from "crypto";
-import { vi } from "vitest";
 
-const WEBHOOK_SECRET = vi.hoisted(() => {
-  process.env.RAZORPAY_WEBHOOK_SECRET = "test-webhook-secret";
-  return "test-webhook-secret";
-});
+const WEBHOOK_SECRET = "test-webhook-secret"; // set in vitest.config.ts
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { api, createTestTenant, createTestUser, adminToken } from "./helpers.js";

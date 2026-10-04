@@ -9,6 +9,7 @@ import {
   adminToken,
   doctorToken,
   patientToken,
+  nextWeekday,
 } from "./helpers.js";
 
 const uniq = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -45,11 +46,7 @@ describe("Role + ownership checks (H1, H2, H3, H7)", () => {
     ownerTkn = patientToken(owner.id, tenantId);
     strangerTkn = patientToken(stranger.id, tenantId);
 
-    const today = new Date();
-    const days = (1 - today.getDay() + 7) % 7 || 7;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + days);
-    date = monday.toISOString().split("T")[0];
+    date = nextWeekday(1);
     for (const id of [doctorAId, doctorBId]) {
       await createTestSchedule(tenantId, id, 1, {
         startTime: "09:00",

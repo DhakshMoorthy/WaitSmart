@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    env: { RAZORPAY_WEBHOOK_SECRET: "test-webhook-secret" },
     setupFiles: ["./tests/setup.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,

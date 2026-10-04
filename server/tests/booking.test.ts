@@ -7,6 +7,7 @@ import {
   createTestDoctor,
   createTestSchedule,
   patientToken,
+  nextWeekday,
 } from "./helpers.js";
 
 describe("Booking Module", () => {
@@ -27,11 +28,7 @@ describe("Booking Module", () => {
     token = patientToken(patient.id, tenantId);
 
     // Create a schedule for next Monday (dayOfWeek=1)
-    const today = new Date();
-    const daysUntilMonday = ((1 - today.getDay()) + 7) % 7 || 7;
-    const nextMonday = new Date(today);
-    nextMonday.setDate(today.getDate() + daysUntilMonday);
-    testDate = nextMonday.toISOString().split("T")[0];
+    testDate = nextWeekday(1);
 
     await createTestSchedule(tenantId, doctorId, 1, {
       startTime: "09:00",
@@ -56,11 +53,7 @@ describe("Booking Module", () => {
     });
 
     it("should return empty slots for a day with no schedule", async () => {
-      const today = new Date();
-      const daysUntilSunday = ((0 - today.getDay()) + 7) % 7 || 7;
-      const nextSunday = new Date(today);
-      nextSunday.setDate(today.getDate() + daysUntilSunday);
-      const sundayDate = nextSunday.toISOString().split("T")[0];
+      const sundayDate = nextWeekday(0);
 
       const res = await api
         .get("/avail")
