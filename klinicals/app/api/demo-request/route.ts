@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server'
+import { demoRequestSchema } from '@/lib/validation'
+import { supabaseAdmin } from '@/lib/supabase'
+import { sendDemoEmails } from '@/lib/email'
+export const runtime='nodejs'
+export async function POST(request:Request){let raw:unknown;try{raw=await request.json()}catch{return NextResponse.json({error:'Please submit a valid form.'},{status:400})}const parsed=demoRequestSchema.safeParse(raw);if(!parsed.success)return NextResponse.json({error:'Please check the required fields and try again.',fields:parsed.error.flatten().fieldErrors},{status:400});try{const {error}=await supabaseAdmin().from('demo_leads').insert({...parsed.data,status:'new'});if(error){console.error('Lead insert failed',error.message);return NextResponse.json({error:'We could not save your request right now. Please email contact@klinicals.com.'},{status:503})}try{await sendDemoEmails(parsed.data)}catch(error){console.error('Demo email notification failed',error)}return NextResponse.json({ok:true},{status:201})}catch(error){console.error('Demo API not configured',error);return NextResponse.json({error:'Demo submissions are not configured yet. Please email contact@klinicals.com.'},{status:503})}}
