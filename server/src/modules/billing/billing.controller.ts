@@ -38,15 +38,29 @@ export async function subscribe(req: AuthedRequest, res: Response, next: NextFun
 
 export async function razorpayWebhook(req: Request, res: Response, next: NextFunction) {
   try {
-    const signature = req.headers["x-razorpay-signature"] as string;
-    const rawBody = JSON.stringify(req.body);
+    const signature = req.headers["x-razorpay-signature"];
+    const rawBody = req.body as Buffer;
 
-    if (signature && !verifyWebhookSignature(rawBody, signature)) {
+    // Signature is mandatory: a missing header is rejected, never skipped.
+    if (
+      !Buffer.isBuffer(rawBody) ||
+      typeof signature !== "string" ||
+      !verifyWebhookSignature(rawBody, signature)
+    ) {
       throw new AppError(400, "Invalid webhook signature", "INVALID_SIGNATURE");
     }
 
-    const { event, payload } = req.body;
-    await billingService.handleWebhook(event, payload);
+    let parsed: { event?: string; payload?: unknown };
+    try {
+      parsed = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      throw new AppError(400, "Invalid webhook body", "INVALID_BODY");
+    }
+    if (typeof parsed.event !== "string") {
+      throw new AppError(400, "Invalid webhook body", "INVALID_BODY");
+    }
+
+    await billingService.handleWebhook(parsed.event, parsed.payload);
     res.json({ status: "ok" });
   } catch (err) {
     next(err);

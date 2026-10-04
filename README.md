@@ -15,7 +15,7 @@ API contract: [docs/API.md](docs/API.md)
 | `admin/` | Next.js | Clinic admin dashboard |
 | `superadmin/` | Next.js | Tenant + billing management |
 | `packages/shared/` | TypeScript | Types, validators, constants |
-| `queue-mvp/` | Vite + Firebase Firestore | **Simplified queue MVP** (no auth, live tokens) |
+| `queue-mvp/` | Vite + React (talks to `server/`) | Web app: patient, doctor and clinic views |
 | `infra/` | Docker, Nginx | Postgres, Redis, production gateway |
 
 ## API modules (server)

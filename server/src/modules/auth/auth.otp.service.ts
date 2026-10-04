@@ -5,7 +5,7 @@ import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { users, tenants, doctors } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
-import { signAccessToken, signRefreshToken } from "../../utils/jwt.js";
+import { issueTokens } from "./auth.tokens.js";
 import { sendSms } from "../../services/notifications/sms.js";
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
@@ -146,12 +146,7 @@ export async function verifyAndLogin(phone: string, otp: string) {
     doctorId = doctor?.id ?? null;
   }
 
-  const payload = {
-    userId: user.id,
-    tenantId: user.tenantId,
-    role: user.role,
-    email: user.email,
-  };
+  const tokens = await issueTokens(user);
 
   return {
     user: {
@@ -163,7 +158,6 @@ export async function verifyAndLogin(phone: string, otp: string) {
       tenantId: user.tenantId,
       doctorId,
     },
-    accessToken: signAccessToken(payload),
-    refreshToken: signRefreshToken(payload),
+    ...tokens,
   };
 }

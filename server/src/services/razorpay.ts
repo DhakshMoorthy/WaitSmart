@@ -32,13 +32,17 @@ export async function createSubscription(planId: string, totalCount: number = 12
   return subscription;
 }
 
-export function verifyWebhookSignature(body: string, signature: string): boolean {
-  if (!env.RAZORPAY_KEY_SECRET) return false;
+/**
+ * Verifies a Razorpay webhook. `rawBody` must be the exact bytes Razorpay sent
+ * (not re-serialised JSON) and the secret is the dashboard *webhook* secret.
+ * Fails closed: no secret configured or no/odd-length signature => false.
+ */
+export function verifyWebhookSignature(rawBody: Buffer | string, signature: string | undefined): boolean {
+  const secret = env.RAZORPAY_WEBHOOK_SECRET;
+  if (!secret || !signature) return false;
 
-  const expected = crypto
-    .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
-    .update(body)
-    .digest("hex");
-
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }

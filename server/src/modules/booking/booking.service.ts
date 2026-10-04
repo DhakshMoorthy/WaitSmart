@@ -14,7 +14,20 @@ import { publicQueueRoom, staffQueueRoom } from "../../socket/queueHandler.js";
 import { SOCKET_EVENTS } from "@waitsmart/shared";
 import type { CreateBookingInput, RescheduleBookingInput } from "./booking.validator.js";
 
-export async function getAvailability(tenantId: string, doctorId: string, date: string) {
+export interface Actor {
+  userId: string;
+  role: string;
+}
+
+const STAFF_ROLES = new Set(["admin", "doctor", "superadmin"]);
+const isStaff = (actor: Actor | null) => !!actor && STAFF_ROLES.has(actor.role);
+
+export async function getAvailability(
+  tenantId: string,
+  doctorId: string,
+  date: string,
+  actor: Actor | null = null,
+) {
   // Verify doctor exists in tenant
   const doctor = await db.query.doctors.findFirst({
     where: and(eq(doctors.id, doctorId), eq(doctors.tenantId, tenantId)),
@@ -70,7 +83,22 @@ export async function getAvailability(tenantId: string, doctorId: string, date: 
       const appointment = await db.query.appointments.findFirst({
         where: eq(appointments.slotId, slot.id),
       });
-      return { ...slot, appointment: appointment ?? null };
+      if (!appointment) return { ...slot, appointment: null };
+
+      // Staff and the booking's owner see everything; everyone else only sees
+      // that the token exists (no names, phones, symptoms, notes or user ids).
+      const canSeeDetails = isStaff(actor) || appointment.patientUserId === actor?.userId;
+      if (canSeeDetails) return { ...slot, appointment };
+      return {
+        ...slot,
+        appointment: {
+          id: appointment.id,
+          slotId: appointment.slotId,
+          doctorId: appointment.doctorId,
+          tokenNumber: appointment.tokenNumber,
+          status: appointment.status,
+        },
+      };
     }),
   );
 
@@ -204,13 +232,23 @@ export async function createBooking(
   return appointment;
 }
 
-export async function cancelBooking(tenantId: string, appointmentId: string) {
+/** Patients may only touch their own bookings; staff may touch any in their tenant. */
+function assertOwnsAppointment(ownerUserId: string | null, actor: Actor) {
+  if (isStaff(actor)) return;
+  if (ownerUserId !== actor.userId) {
+    // 404, not 403: don't confirm that someone else's appointment id exists.
+    throw new AppError(404, "Appointment not found", "NOT_FOUND");
+  }
+}
+
+export async function cancelBooking(tenantId: string, appointmentId: string, actor: Actor) {
   const appointment = await db.query.appointments.findFirst({
     where: and(eq(appointments.id, appointmentId), eq(appointments.tenantId, tenantId)),
   });
   if (!appointment) {
     throw new AppError(404, "Appointment not found", "NOT_FOUND");
   }
+  assertOwnsAppointment(appointment.patientUserId, actor);
   if (appointment.status === "cancelled" || appointment.status === "done") {
     throw new AppError(400, "Cannot cancel this appointment", "INVALID_STATUS");
   }
@@ -230,7 +268,7 @@ export async function cancelBooking(tenantId: string, appointmentId: string) {
 
 export async function rescheduleBooking(
   tenantId: string,
-  patientUserId: string | null,
+  actor: Actor,
   input: RescheduleBookingInput,
 ) {
   const appointment = await db.query.appointments.findFirst({
@@ -239,15 +277,16 @@ export async function rescheduleBooking(
   if (!appointment) {
     throw new AppError(404, "Appointment not found", "NOT_FOUND");
   }
+  assertOwnsAppointment(appointment.patientUserId, actor);
   if (appointment.status !== "waiting") {
     throw new AppError(400, "Can only reschedule waiting appointments", "INVALID_STATUS");
   }
 
   // Cancel old
-  await cancelBooking(tenantId, input.appointmentId);
+  await cancelBooking(tenantId, input.appointmentId, actor);
 
-  // Book new slot
-  const newAppointment = await createBooking(tenantId, patientUserId, {
+  // Book new slot — the booking stays with its original owner even if staff reschedules it
+  const newAppointment = await createBooking(tenantId, appointment.patientUserId, {
     clinicId: appointment.clinicId,
     doctorId: appointment.doctorId,
     slotId: input.newSlotId,
