@@ -38,7 +38,7 @@ export async function registerUser(input: RegisterInput, tenantId: string | null
       email: input.email,
       phone: input.phone,
       passwordHash,
-      role: input.role as (typeof users.$inferInsert)["role"],
+      role: "patient",
     })
     .returning();
 

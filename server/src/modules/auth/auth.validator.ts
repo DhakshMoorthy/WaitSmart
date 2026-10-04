@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { registerSchema, loginSchema, phoneSchema } from "@waitsmart/shared";
 
-export const registerBody = registerSchema;
+// Public self-registration can only ever create patients: `role` is dropped by Zod's
+// default key stripping. Staff accounts are provisioned by admins / seeds, never here.
+export const registerBody = registerSchema.omit({ role: true });
 export const loginBody = loginSchema;
 
 export const refreshBody = z.object({

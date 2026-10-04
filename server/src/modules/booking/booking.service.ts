@@ -10,6 +10,7 @@ import {
 } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import { getIO } from "../../socket/index.js";
+import { publicQueueRoom, staffQueueRoom } from "../../socket/queueHandler.js";
 import { SOCKET_EVENTS } from "@waitsmart/shared";
 import type { CreateBookingInput, RescheduleBookingInput } from "./booking.validator.js";
 
@@ -184,11 +185,17 @@ export async function createBooking(
 
   // Emit booking:created via Socket.io
   try {
-    getIO().to(`queue:${input.doctorId}`).emit(SOCKET_EVENTS.BOOKING_CREATED, {
+    const io = getIO();
+    io.to(staffQueueRoom(input.doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
       appointmentId: appointment.id,
       tokenNumber: appointment.tokenNumber,
       doctorId: input.doctorId,
       patientName: input.patientName,
+    });
+    // Patients only learn that a token was taken, not who took it.
+    io.to(publicQueueRoom(input.doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
+      tokenNumber: appointment.tokenNumber,
+      doctorId: input.doctorId,
     });
   } catch {
     // Socket may not be initialized in test environments

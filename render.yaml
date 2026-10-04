@@ -30,6 +30,11 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Superadmin is only created when BOTH are set (password >= 12 chars). Set in Render dashboard.
+      - key: SUPERADMIN_EMAIL
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false
       - key: JWT_ACCESS_TTL
         value: "15m"
       - key: JWT_REFRESH_TTL

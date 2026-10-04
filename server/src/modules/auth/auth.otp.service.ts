@@ -2,18 +2,28 @@ import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { redis } from "../../config/redis.js";
 import { db } from "../../config/db.js";
+import { env } from "../../config/env.js";
 import { users, tenants, doctors } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import { signAccessToken, signRefreshToken } from "../../utils/jwt.js";
 import { sendSms } from "../../services/notifications/sms.js";
-import { logger } from "../../utils/logger.js";
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
 const OTP_PREFIX = "otp:";
+const OTP_ATTEMPTS_PREFIX = "otp_attempts:";
+const OTP_SEND_PREFIX = "otp_send:";
+const MAX_VERIFY_ATTEMPTS = 5; // wrong guesses before the code is burned
+const MAX_SENDS_PER_HOUR = 5; // OTP requests per phone per hour
 const DEFAULT_TENANT_SLUG = "apollo-clinic";
 
 function generateOtp(): string {
-  return crypto.randomInt(100000, 999999).toString();
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
 }
 
 /** Resolve the default clinic tenant for new OTP patients (seeded Apollo Clinic). */
@@ -28,11 +38,20 @@ async function resolveDefaultTenantId(): Promise<string | null> {
 }
 
 export async function sendOtp(phone: string) {
+  const sendKey = `${OTP_SEND_PREFIX}${phone}`;
+  const sends = await redis.incr(sendKey);
+  if (sends === 1) await redis.expire(sendKey, 3600);
+  if (sends > MAX_SENDS_PER_HOUR) {
+    throw new AppError(429, "Too many OTP requests, try again later", "OTP_RATE_LIMITED");
+  }
+
   const otp = generateOtp();
   const key = `${OTP_PREFIX}${phone}`;
 
   await redis.set(key, otp, { EX: OTP_TTL_SECONDS });
-  logger.info(`[OTP] Generated for ${phone}: ${otp}`);
+  await redis.del(`${OTP_ATTEMPTS_PREFIX}${phone}`);
+
+  const smsConfigured = !!(env.SMS_PROVIDER && env.SMS_API_KEY && env.SMS_SENDER_ID);
 
   // OTP is already stored — don't hold the HTTP response on SMS provider latency.
   void sendSms({
@@ -40,28 +59,35 @@ export async function sendOtp(phone: string) {
     message: `Your WaitSmart OTP is: ${otp}. Valid for 5 minutes.`,
   });
 
-  // Return OTP in response when no SMS provider is configured (OTP can't reach user otherwise)
-  const smsConfigured = !!(process.env.SMS_PROVIDER && process.env.SMS_API_KEY);
+  // Never echo the code back in production — that would let anyone log in as any phone.
+  const exposeDevOtp = env.NODE_ENV !== "production" && !smsConfigured;
   return {
     message: "OTP sent successfully",
     expiresInSeconds: OTP_TTL_SECONDS,
-    ...(!smsConfigured ? { devOtp: otp } : {}),
+    ...(exposeDevOtp ? { devOtp: otp } : {}),
   };
 }
 
 export async function verifyAndLogin(phone: string, otp: string) {
   const key = `${OTP_PREFIX}${phone}`;
+  const attemptsKey = `${OTP_ATTEMPTS_PREFIX}${phone}`;
   const stored = await redis.get(key);
 
   if (!stored) {
     throw new AppError(400, "OTP expired or not found", "OTP_EXPIRED");
   }
-  if (stored !== otp) {
+  if (!safeEqual(stored, otp)) {
+    const attempts = await redis.incr(attemptsKey);
+    if (attempts === 1) await redis.expire(attemptsKey, OTP_TTL_SECONDS);
+    if (attempts >= MAX_VERIFY_ATTEMPTS) {
+      await redis.del([key, attemptsKey]);
+      throw new AppError(429, "Too many wrong attempts, request a new OTP", "OTP_LOCKED");
+    }
     throw new AppError(400, "Invalid OTP", "INVALID_OTP");
   }
 
   // Consume OTP
-  await redis.del(key);
+  await redis.del([key, attemptsKey]);
 
   // Find or create user by phone
   let user = await db.query.users.findFirst({

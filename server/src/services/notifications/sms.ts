@@ -12,7 +12,12 @@ export async function sendSms(payload: SmsPayload): Promise<boolean> {
   const senderId = env.SMS_SENDER_ID;
 
   if (!provider || !apiKey || !senderId) {
-    logger.info(`[SMS-DEV] To: ${payload.to} | ${payload.message}`);
+    // Message bodies can contain OTPs — only print them outside production.
+    logger.info(
+      env.NODE_ENV === "production"
+        ? `[SMS-DEV] SMS provider not configured, skipped message to ${payload.to}`
+        : `[SMS-DEV] To: ${payload.to} | ${payload.message}`,
+    );
     return false;
   }
 

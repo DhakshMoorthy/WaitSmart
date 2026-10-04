@@ -3,6 +3,7 @@ import { db } from "../../config/db.js";
 import { queueState, appointments, slots, type QueueLastAction } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import { getIO } from "../../socket/index.js";
+import { publicQueueRoom, staffQueueRoom } from "../../socket/queueHandler.js";
 import { SOCKET_EVENTS } from "@waitsmart/shared";
 import type {
   QueueActionInput,
@@ -108,8 +109,27 @@ async function emitQueueUpdate(doctorId: string, date: string, tenantId: string)
     })),
   };
 
+  // Patients get token numbers + statuses only; staff get the full payload.
+  const publicPayload = {
+    doctorId,
+    date,
+    nowServing: payload.nowServing,
+    waitingCount: payload.waitingCount,
+    currentSlot: payload.currentSlot,
+    appointments: todayAppts.map((a) => ({
+      id: a.id,
+      tokenNumber: a.tokenNumber,
+      status: a.status,
+    })),
+  };
+
   try {
-    getIO().to(`queue:${doctorId}`).emit(SOCKET_EVENTS.QUEUE_UPDATE, payload);
+    getIO()
+      .to(staffQueueRoom(doctorId))
+      .emit(SOCKET_EVENTS.QUEUE_UPDATE, payload);
+    getIO()
+      .to(publicQueueRoom(doctorId))
+      .emit(SOCKET_EVENTS.QUEUE_UPDATE, publicPayload);
   } catch {
     // Socket may not be initialized in test environments
   }
