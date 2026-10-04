@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, timestamp, pgEnum, index, integer } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { pgTable, uuid, text, timestamp, pgEnum, index, integer, uniqueIndex } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants.js";
 import { doctors } from "./doctors.js";
 import { clinics } from "./clinics.js";
@@ -46,6 +47,10 @@ export const appointments = pgTable(
     tenantIdx: index("appointments_tenant_idx").on(table.tenantId),
     doctorIdx: index("appointments_doctor_idx").on(table.doctorId),
     patientIdx: index("appointments_patient_idx").on(table.patientUserId),
+    // One active appointment per slot (see migration 0002).
+    activeSlotUnique: uniqueIndex("appointments_active_slot_unique")
+      .on(table.slotId)
+      .where(sql`${table.status} <> 'cancelled'`),
   }),
 );
 

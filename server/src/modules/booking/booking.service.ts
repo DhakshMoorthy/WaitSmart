@@ -156,13 +156,22 @@ async function generateSlots(
   return db.insert(slots).values(slotValues).returning();
 }
 
-export async function createBooking(
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Claims the slot and creates the appointment inside the caller's transaction.
+ *  - the slot is claimed with an atomic `UPDATE ... WHERE status = 'available'`, so two
+ *    simultaneous requests can never both win (the loser gets 409 SLOT_TAKEN)
+ *  - token numbers are allocated under a per-doctor/day advisory lock as MAX+1, so they
+ *    are unique even when bookings are cancelled or made concurrently
+ */
+async function bookInTx(
+  tx: Tx,
   tenantId: string,
   patientUserId: string | null,
   input: CreateBookingInput,
 ) {
-  // Verify slot belongs to tenant + doctor and is available
-  const slot = await db.query.slots.findFirst({
+  const slot = await tx.query.slots.findFirst({
     where: and(
       eq(slots.id, input.slotId),
       eq(slots.doctorId, input.doctorId),
@@ -172,13 +181,26 @@ export async function createBooking(
   if (!slot) {
     throw new AppError(404, "Slot not found", "NOT_FOUND");
   }
-  if (slot.status !== "available") {
+
+  const doctor = await tx.query.doctors.findFirst({
+    where: and(eq(doctors.id, input.doctorId), eq(doctors.tenantId, tenantId)),
+  });
+  if (!doctor || doctor.clinicId !== input.clinicId) {
+    throw new AppError(400, "Doctor does not belong to this clinic", "INVALID_CLINIC");
+  }
+
+  const claimed = await tx
+    .update(slots)
+    .set({ status: "booked" })
+    .where(and(eq(slots.id, slot.id), eq(slots.status, "available")))
+    .returning({ id: slots.id });
+  if (claimed.length === 0) {
     throw new AppError(409, "Slot is no longer available", "SLOT_TAKEN");
   }
 
-  // Token number = count of appointments for this doctor on this slot date + 1
-  const [countResult] = await db
-    .select({ total: count() })
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`${input.doctorId}:${slot.date}`}))`);
+  const [{ maxToken }] = await tx
+    .select({ maxToken: sql<number>`coalesce(max(${appointments.tokenNumber}), 0)::int` })
     .from(appointments)
     .innerJoin(slots, eq(appointments.slotId, slots.id))
     .where(
@@ -188,13 +210,8 @@ export async function createBooking(
         eq(slots.date, slot.date),
       ),
     );
-  const tokenNumber = (countResult?.total ?? 0) + 1;
 
-  // Mark slot as booked
-  await db.update(slots).set({ status: "booked" }).where(eq(slots.id, input.slotId));
-
-  // Create appointment
-  const [appointment] = await db
+  const [appointment] = await tx
     .insert(appointments)
     .values({
       tenantId,
@@ -206,29 +223,43 @@ export async function createBooking(
       patientPhone: input.patientPhone,
       symptoms: input.symptoms,
       fileId: input.fileId,
-      tokenNumber,
+      tokenNumber: maxToken + 1,
       status: "waiting",
     })
     .returning();
+  return appointment;
+}
 
-  // Emit booking:created via Socket.io
+/** Tell watchers a token was taken â€” only after the transaction has committed. */
+function emitBookingCreated(
+  appointment: { id: string; tokenNumber: number; patientName: string },
+  doctorId: string,
+) {
   try {
     const io = getIO();
-    io.to(staffQueueRoom(input.doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
+    io.to(staffQueueRoom(doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
       appointmentId: appointment.id,
       tokenNumber: appointment.tokenNumber,
-      doctorId: input.doctorId,
-      patientName: input.patientName,
+      doctorId,
+      patientName: appointment.patientName,
     });
     // Patients only learn that a token was taken, not who took it.
-    io.to(publicQueueRoom(input.doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
+    io.to(publicQueueRoom(doctorId)).emit(SOCKET_EVENTS.BOOKING_CREATED, {
       tokenNumber: appointment.tokenNumber,
-      doctorId: input.doctorId,
+      doctorId,
     });
   } catch {
     // Socket may not be initialized in test environments
   }
+}
 
+export async function createBooking(
+  tenantId: string,
+  patientUserId: string | null,
+  input: CreateBookingInput,
+) {
+  const appointment = await db.transaction((tx) => bookInTx(tx, tenantId, patientUserId, input));
+  emitBookingCreated(appointment, input.doctorId);
   return appointment;
 }
 
@@ -241,8 +272,8 @@ function assertOwnsAppointment(ownerUserId: string | null, actor: Actor) {
   }
 }
 
-export async function cancelBooking(tenantId: string, appointmentId: string, actor: Actor) {
-  const appointment = await db.query.appointments.findFirst({
+async function cancelInTx(tx: Tx, tenantId: string, appointmentId: string, actor: Actor) {
+  const appointment = await tx.query.appointments.findFirst({
     where: and(eq(appointments.id, appointmentId), eq(appointments.tenantId, tenantId)),
   });
   if (!appointment) {
@@ -253,48 +284,51 @@ export async function cancelBooking(tenantId: string, appointmentId: string, act
     throw new AppError(400, "Cannot cancel this appointment", "INVALID_STATUS");
   }
 
-  // Release the slot
-  await db.update(slots).set({ status: "available" }).where(eq(slots.id, appointment.slotId));
+  await tx.update(slots).set({ status: "available" }).where(eq(slots.id, appointment.slotId));
 
-  // Update appointment status
-  const [updated] = await db
+  const [updated] = await tx
     .update(appointments)
     .set({ status: "cancelled", updatedAt: new Date() })
     .where(eq(appointments.id, appointmentId))
     .returning();
-
   return updated;
 }
 
+export async function cancelBooking(tenantId: string, appointmentId: string, actor: Actor) {
+  return db.transaction((tx) => cancelInTx(tx, tenantId, appointmentId, actor));
+}
+
+/** Cancel + rebook atomically: if the new slot is taken, the old booking is left untouched. */
 export async function rescheduleBooking(
   tenantId: string,
   actor: Actor,
   input: RescheduleBookingInput,
 ) {
-  const appointment = await db.query.appointments.findFirst({
-    where: and(eq(appointments.id, input.appointmentId), eq(appointments.tenantId, tenantId)),
+  const appointment = await db.transaction(async (tx) => {
+    const old = await tx.query.appointments.findFirst({
+      where: and(eq(appointments.id, input.appointmentId), eq(appointments.tenantId, tenantId)),
+    });
+    if (!old) {
+      throw new AppError(404, "Appointment not found", "NOT_FOUND");
+    }
+    assertOwnsAppointment(old.patientUserId, actor);
+    if (old.status !== "waiting") {
+      throw new AppError(400, "Can only reschedule waiting appointments", "INVALID_STATUS");
+    }
+
+    await cancelInTx(tx, tenantId, input.appointmentId, actor);
+
+    // The booking stays with its original owner even if staff reschedules it.
+    return bookInTx(tx, tenantId, old.patientUserId, {
+      clinicId: old.clinicId,
+      doctorId: old.doctorId,
+      slotId: input.newSlotId,
+      patientName: old.patientName,
+      patientPhone: old.patientPhone ?? undefined,
+      symptoms: old.symptoms ?? undefined,
+      fileId: old.fileId ?? undefined,
+    });
   });
-  if (!appointment) {
-    throw new AppError(404, "Appointment not found", "NOT_FOUND");
-  }
-  assertOwnsAppointment(appointment.patientUserId, actor);
-  if (appointment.status !== "waiting") {
-    throw new AppError(400, "Can only reschedule waiting appointments", "INVALID_STATUS");
-  }
-
-  // Cancel old
-  await cancelBooking(tenantId, input.appointmentId, actor);
-
-  // Book new slot — the booking stays with its original owner even if staff reschedules it
-  const newAppointment = await createBooking(tenantId, appointment.patientUserId, {
-    clinicId: appointment.clinicId,
-    doctorId: appointment.doctorId,
-    slotId: input.newSlotId,
-    patientName: appointment.patientName,
-    patientPhone: appointment.patientPhone ?? undefined,
-    symptoms: appointment.symptoms ?? undefined,
-    fileId: appointment.fileId ?? undefined,
-  });
-
-  return newAppointment;
+  emitBookingCreated(appointment, appointment.doctorId);
+  return appointment;
 }

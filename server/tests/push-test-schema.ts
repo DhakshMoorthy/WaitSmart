@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
@@ -27,12 +27,14 @@ async function main() {
 
     // schema.sql is a snapshot of 0000_initial; later migrations must be layered on top.
     // They are written to be idempotent (IF NOT EXISTS), so this is safe on every run.
-    const parity = readFileSync(
-      resolve(__dirname, "../src/db/migrations/0001_queue_parity.sql"),
-      "utf8",
-    );
-    await client.query(parity);
-    console.log("Applied migration 0001_queue_parity");
+    const migrationsDir = resolve(__dirname, "../src/db/migrations");
+    const later = readdirSync(migrationsDir)
+      .filter((f) => /^\d{4}_.*\.sql$/.test(f) && !f.startsWith("0000_"))
+      .sort();
+    for (const file of later) {
+      await client.query(readFileSync(resolve(migrationsDir, file), "utf8"));
+      console.log(`Applied migration ${file}`);
+    }
   } finally {
     client.release();
     await pool.end();

@@ -13,3 +13,6 @@ coverage/
 .turbo/
 *.tsbuildinfo
 .vercel/
+
+# Local/test file uploads (never commit)
+server/uploads/
