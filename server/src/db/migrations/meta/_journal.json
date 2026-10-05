@@ -15,6 +15,13 @@
       "when": 1721000000000,
       "tag": "0001_queue_parity",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1722000000000,
+      "tag": "0002_booking_integrity",
+      "breakpoints": true
     }
   ]
 }

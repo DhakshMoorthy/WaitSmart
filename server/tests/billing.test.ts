@@ -1,3 +1,7 @@
+import crypto from "crypto";
+
+const WEBHOOK_SECRET = "test-webhook-secret"; // set in vitest.config.ts
+
 import { describe, it, expect, beforeAll } from "vitest";
 import { api, createTestTenant, createTestUser, adminToken } from "./helpers.js";
 
@@ -49,29 +53,43 @@ describe("Billing Module", () => {
   });
 
   describe("POST /billing/webhooks/razorpay", () => {
-    it("should process webhook without signature gracefully", async () => {
-      const res = await api
-        .post("/billing/webhooks/razorpay")
-        .send({
-          event: "subscription.activated",
-          payload: { subscription: { entity: { id: "sub_test" } } },
-        });
-
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe("ok");
+    const body = JSON.stringify({
+      event: "subscription.activated",
+      payload: { subscription: { entity: { id: "sub_test" } } },
     });
+    const sign = (raw: string) =>
+      crypto.createHmac("sha256", WEBHOOK_SECRET).update(raw).digest("hex");
 
-    it("should reject webhook with invalid signature", async () => {
+    it("rejects a webhook with no signature header", async () => {
       const res = await api
         .post("/billing/webhooks/razorpay")
-        .set("x-razorpay-signature", "invalid_sig")
-        .send({
-          event: "subscription.activated",
-          payload: { subscription: { entity: { id: "sub_test" } } },
-        });
+        .set("Content-Type", "application/json")
+        .send(body);
 
       expect(res.status).toBe(400);
       expect(res.body.code).toBe("INVALID_SIGNATURE");
+    });
+
+    it("rejects a webhook with an invalid signature", async () => {
+      const res = await api
+        .post("/billing/webhooks/razorpay")
+        .set("Content-Type", "application/json")
+        .set("x-razorpay-signature", "invalid_sig")
+        .send(body);
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe("INVALID_SIGNATURE");
+    });
+
+    it("accepts a webhook signed over the raw body", async () => {
+      const res = await api
+        .post("/billing/webhooks/razorpay")
+        .set("Content-Type", "application/json")
+        .set("x-razorpay-signature", sign(body))
+        .send(body);
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe("ok");
     });
   });
 });

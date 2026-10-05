@@ -8,6 +8,7 @@ import {
   createTestSchedule,
   adminToken,
   patientToken,
+  nextWeekday,
 } from "./helpers.js";
 
 describe("Queue Module", () => {
@@ -31,11 +32,7 @@ describe("Queue Module", () => {
     doctorId = doctor.id;
 
     // Schedule for Tuesday (dayOfWeek=2)
-    const today = new Date();
-    const daysUntilTuesday = ((2 - today.getDay()) + 7) % 7 || 7;
-    const nextTuesday = new Date(today);
-    nextTuesday.setDate(today.getDate() + daysUntilTuesday);
-    testDate = nextTuesday.toISOString().split("T")[0];
+    testDate = nextWeekday(2);
 
     await createTestSchedule(tenantId, doctorId, 2, {
       startTime: "10:00",

@@ -4,7 +4,7 @@ import { db } from "../../config/db.js";
 import { files } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import * as storage from "../../services/storage.js";
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "./file.validator.js";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE, MIME_TO_EXT, detectMime, sanitizeFilename } from "./file.validator.js";
 
 export async function uploadFile(
   tenantId: string,
@@ -18,8 +18,14 @@ export async function uploadFile(
     throw new AppError(400, "File too large (max 10MB)", "FILE_TOO_LARGE");
   }
 
-  const ext = file.originalname.split(".").pop() ?? "bin";
-  const storageKey = `${tenantId}/${uuid()}.${ext}`;
+  // Trust the bytes, not the client: content must match the declared type.
+  const detected = detectMime(file.buffer);
+  if (detected !== file.mimetype) {
+    throw new AppError(400, "File content does not match its declared type", "INVALID_FILE_TYPE");
+  }
+
+  // Extension comes from our own allowlist, never from the uploaded filename.
+  const storageKey = `${tenantId}/${uuid()}.${MIME_TO_EXT[detected]}`;
 
   await storage.uploadFile(storageKey, file.buffer, file.mimetype);
 
@@ -28,7 +34,7 @@ export async function uploadFile(
     .values({
       tenantId,
       uploadedBy: userId,
-      filename: file.originalname,
+      filename: sanitizeFilename(file.originalname),
       mimeType: file.mimetype,
       sizeBytes: file.size,
       storageKey,

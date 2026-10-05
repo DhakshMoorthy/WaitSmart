@@ -30,12 +30,31 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      # Superadmin is only created when BOTH are set (password >= 12 chars). Set in Render dashboard.
+      - key: SUPERADMIN_EMAIL
+        sync: false
+      - key: SUPERADMIN_PASSWORD
+        sync: false
+      # Razorpay dashboard -> Webhooks -> secret (NOT the API key secret). Without it all webhooks are rejected.
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      # SMS (needed for OTP login in production): msg91 -> SMS_PROVIDER, SMS_API_KEY (authkey), SMS_TEMPLATE_ID, SMS_SENDER_ID
+      - key: SMS_PROVIDER
+        sync: false
+      - key: SMS_API_KEY
+        sync: false
+      - key: SMS_SENDER_ID
+        sync: false
+      - key: SMS_TEMPLATE_ID
+        sync: false
+      - key: DEFAULT_TENANT_SLUG
+        value: apollo-clinic
       - key: JWT_ACCESS_TTL
         value: "15m"
       - key: JWT_REFRESH_TTL
         value: "30d"
       - key: CORS_ORIGINS
-        value: "https://waitsmart-web.onrender.com,https://wait-smart-admin.vercel.app,http://localhost:3000,http://localhost:5173"
+        value: "https://klinicals.com,https://www.klinicals.com,https://app.klinicals.com,https://waitsmart-web.onrender.com,https://wait-smart-admin.vercel.app"
     healthCheckPath: /health
 
   - type: web

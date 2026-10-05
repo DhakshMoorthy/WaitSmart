@@ -55,7 +55,7 @@ export async function subscribe(tenantId: string, input: SubscribeInput) {
   return subscription;
 }
 
-export async function handleWebhook(event: string, payload: any) {
+export async function handleWebhook(event: string, payload: any = {}) {
   logger.info(`Razorpay webhook: ${event}`);
 
   switch (event) {
@@ -86,7 +86,11 @@ export async function handleWebhook(event: string, payload: any) {
         const sub = await db.query.subscriptions.findFirst({
           where: eq(subscriptions.razorpaySubscriptionId, pay.subscription_id),
         });
-        if (sub) {
+        // Razorpay retries webhooks: don't record the same payment twice.
+        const already = await db.query.payments.findFirst({
+          where: eq(payments.razorpayPaymentId, pay.id),
+        });
+        if (sub && !already) {
           await db.insert(payments).values({
             tenantId: sub.tenantId,
             subscriptionId: sub.id,

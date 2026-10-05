@@ -139,3 +139,16 @@ export function patientToken(userId: string, tenantId: string) {
     email: "patient@test.com",
   });
 }
+
+/**
+ * Next occurrence (strictly in the future) of `dayOfWeek` (0=Sun) as a local YYYY-MM-DD.
+ * Uses local date parts, NOT toISOString(): the API derives day-of-week from the calendar
+ * date, and UTC conversion shifts the date by a day for timezones ahead of UTC.
+ */
+export function nextWeekday(dayOfWeek: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + (((dayOfWeek - d.getDay()) + 7) % 7 || 7));
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}

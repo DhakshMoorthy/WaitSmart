@@ -13,7 +13,10 @@ export async function availability(req: AuthedRequest, res: Response, next: Next
   try {
     const tenantId = tenantScope(req);
     const query = availabilityQuery.parse(req.query);
-    const data = await bookingService.getAvailability(tenantId, query.doctorId, query.date);
+    const data = await bookingService.getAvailability(tenantId, query.doctorId, query.date, {
+      userId: req.user!.userId,
+      role: req.user!.role,
+    });
     res.json({ data });
   } catch (err) {
     next(err);
@@ -36,7 +39,10 @@ export async function cancel(req: AuthedRequest, res: Response, next: NextFuncti
   try {
     const tenantId = tenantScope(req);
     const body = cancelBookingBody.parse(req.body);
-    const data = await bookingService.cancelBooking(tenantId, body.appointmentId);
+    const data = await bookingService.cancelBooking(tenantId, body.appointmentId, {
+      userId: req.user!.userId,
+      role: req.user!.role,
+    });
     res.json({ data });
   } catch (err) {
     next(err);
@@ -47,8 +53,10 @@ export async function reschedule(req: AuthedRequest, res: Response, next: NextFu
   try {
     const tenantId = tenantScope(req);
     const body = rescheduleBookingBody.parse(req.body);
-    const patientUserId = req.user?.userId ?? null;
-    const data = await bookingService.rescheduleBooking(tenantId, patientUserId, body);
+    const data = await bookingService.rescheduleBooking(tenantId, {
+      userId: req.user!.userId,
+      role: req.user!.role,
+    }, body);
     res.json({ data });
   } catch (err) {
     next(err);

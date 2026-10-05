@@ -12,6 +12,7 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.string().default("30d"),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
@@ -25,6 +26,10 @@ const envSchema = z.object({
   SMS_PROVIDER: z.enum(["msg91", "twilio", ""]).optional(),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),
+  SMS_TEMPLATE_ID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  // Clinic that new phone/OTP patients join when the client does not say which clinic.
+  DEFAULT_TENANT_SLUG: z.string().default("apollo-clinic"),
   // Object storage (Oracle OCI / S3-compatible)
   STORAGE_PROVIDER: z.enum(["oci", "s3", ""]).optional(),
   STORAGE_BUCKET: z.string().optional(),

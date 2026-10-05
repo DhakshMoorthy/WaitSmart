@@ -4,31 +4,79 @@ import { users } from "../schema/users.js";
 import { clinics } from "../schema/clinics.js";
 import { doctors } from "../schema/doctors.js";
 import { doctorSchedules } from "../schema/doctorSchedules.js";
-import { hashPassword } from "../../utils/hash.js";
+import { eq } from "drizzle-orm";
+import crypto from "crypto";
+import { env } from "../../config/env.js";
+import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { logger } from "../../utils/logger.js";
+
+const isProd = env.NODE_ENV === "production";
+
+// Well-known dev passwords. They must never be usable in production.
+const KNOWN_DEV_PASSWORDS = ["Admin@1234", "Doctor@1234", "Patient@1234"];
+
+/** Dev: the documented password. Production: random, unrecoverable (reset via admin flow). */
+function seedPassword(devPassword: string): string {
+  return isProd ? crypto.randomBytes(24).toString("hex") : devPassword;
+}
+
+/** Production only: rotate any account still using a published seed password. */
+async function neutralizeKnownPasswords() {
+  const all = await db.select().from(users);
+  for (const u of all) {
+    for (const known of KNOWN_DEV_PASSWORDS) {
+      if (await comparePassword(known, u.passwordHash)) {
+        const randomHash = await hashPassword(crypto.randomBytes(24).toString("hex"));
+        await db.update(users).set({ passwordHash: randomHash, updatedAt: new Date() }).where(eq(users.id, u.id));
+        logger.warn(`Rotated published seed password for ${u.email}`);
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Superadmin credentials come from the environment.
+ * Dev: falls back to the documented defaults. Production: skipped unless both are set.
+ */
+function superadminCredentials(): { email: string; password: string } | null {
+  const email = process.env.SUPERADMIN_EMAIL || (isProd ? undefined : "superadmin@waitsmart.app");
+  const password = process.env.SUPERADMIN_PASSWORD || (isProd ? undefined : "Admin@1234");
+  if (!email || !password) return null;
+  if (isProd && password.length < 12) {
+    throw new Error("SUPERADMIN_PASSWORD must be at least 12 characters in production");
+  }
+  return { email, password };
+}
 
 async function seed() {
   logger.info("Seeding database...");
 
-  // 1. Superadmin user (no tenant)
-  const superadminPassword = await hashPassword("Admin@1234");
-  const [superadmin] = await db
-    .insert(users)
-    .values({
-      name: "Super Admin",
-      email: "superadmin@waitsmart.app",
-      phone: "+919999900000",
-      passwordHash: superadminPassword,
-      role: "superadmin",
-      tenantId: null,
-    })
-    .onConflictDoNothing()
-    .returning();
+  if (isProd) await neutralizeKnownPasswords();
 
-  if (superadmin) {
-    logger.info(`Created superadmin: ${superadmin.email}`);
+  // 1. Superadmin user (no tenant)
+  const creds = superadminCredentials();
+  if (!creds) {
+    logger.warn("SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set � skipping superadmin creation");
   } else {
-    logger.info("Superadmin already exists, skipping");
+    const [superadmin] = await db
+      .insert(users)
+      .values({
+        name: "Super Admin",
+        email: creds.email,
+        phone: "+919999900000",
+        passwordHash: await hashPassword(creds.password),
+        role: "superadmin",
+        tenantId: null,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (superadmin) {
+      logger.info(`Created superadmin: ${superadmin.email}`);
+    } else {
+      logger.info("Superadmin already exists, skipping");
+    }
   }
 
   // 2. Sample tenant
@@ -51,7 +99,7 @@ async function seed() {
   logger.info(`Created tenant: ${tenant.name} (${tenant.id})`);
 
   // 3. Admin user for the tenant
-  const adminPassword = await hashPassword("Admin@1234");
+  const adminPassword = await hashPassword(seedPassword("Admin@1234"));
   const [admin] = await db
     .insert(users)
     .values({
@@ -89,7 +137,7 @@ async function seed() {
   logger.info(`Created clinic: ${clinic2.name}`);
 
   // 5. Doctor user
-  const doctorPassword = await hashPassword("Doctor@1234");
+  const doctorPassword = await hashPassword(seedPassword("Doctor@1234"));
   const [doctorUser] = await db
     .insert(users)
     .values({
@@ -153,7 +201,7 @@ async function seed() {
   logger.info("Created doctor schedules (Mon–Sat 09:00–18:00, 30-min slots)");
 
   // 7. Patient user
-  const patientPassword = await hashPassword("Patient@1234");
+  const patientPassword = await hashPassword(seedPassword("Patient@1234"));
   const [patient] = await db
     .insert(users)
     .values({
@@ -168,12 +216,14 @@ async function seed() {
   logger.info(`Created patient: ${patient.email}`);
 
   logger.info("Seeding complete!");
-  logger.info("---");
-  logger.info("Test credentials:");
-  logger.info("  Superadmin: superadmin@waitsmart.app / Admin@1234");
-  logger.info("  Admin:      admin@apollo.waitsmart.app / Admin@1234");
-  logger.info("  Doctor:     priya@apollo.waitsmart.app / Doctor@1234");
-  logger.info("  Patient:    rajesh@example.com / Patient@1234");
+  if (!isProd) {
+    logger.info("---");
+    logger.info("Test credentials (development only):");
+    logger.info("  Superadmin: superadmin@waitsmart.app / Admin@1234");
+    logger.info("  Admin:      admin@apollo.waitsmart.app / Admin@1234");
+    logger.info("  Doctor:     priya@apollo.waitsmart.app / Doctor@1234");
+    logger.info("  Patient:    rajesh@example.com / Patient@1234");
+  }
 
   await pool.end();
 }
