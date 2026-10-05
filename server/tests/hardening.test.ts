@@ -113,6 +113,54 @@ describe("OTP tenant assignment (M9)", () => {
   });
 });
 
+describe("Dev OTP mode (development stage)", () => {
+  const original = { ...env };
+  afterEach(() => {
+    Object.assign(env, original);
+  });
+
+  it("production without the flag never returns the OTP", async () => {
+    Object.assign(env, { NODE_ENV: "production", EXPOSE_DEV_OTP: false });
+    const res = await api.post("/auth/otp/send").send({ phone: "+919811100020" });
+    expect(res.status).toBe(200);
+    expect(res.body).not.toHaveProperty("devOtp");
+  });
+
+  it("production WITH EXPOSE_DEV_OTP=true returns the OTP so it can be typed in", async () => {
+    Object.assign(env, { NODE_ENV: "production", EXPOSE_DEV_OTP: true });
+    const res = await api.post("/auth/otp/send").send({ phone: "+919811100021" });
+    expect(res.status).toBe(200);
+    expect(res.body.devOtp).toMatch(/^\d{6}$/);
+  });
+
+  it("patients can log in with the visible OTP", async () => {
+    Object.assign(env, { NODE_ENV: "production", EXPOSE_DEV_OTP: true });
+    const tenant = await createTestTenant({ slug: `dev-otp-${uniq()}` });
+    const phone = "+919811100022";
+    const send = await api.post("/auth/otp/send").send({ phone });
+    const res = await api.post("/auth/otp/verify").send({ phone, otp: send.body.devOtp, tenantSlug: tenant.slug });
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe("patient");
+  });
+
+  it.each(["superadmin", "admin", "doctor"] as const)(
+    "a visible OTP can NOT be used to log in as %s",
+    async (role) => {
+      Object.assign(env, { NODE_ENV: "production", EXPOSE_DEV_OTP: true });
+      const tenant = await createTestTenant({ slug: `dev-otp-staff-${uniq()}` });
+      const phone = `+9198111${String(Math.floor(Math.random() * 90000) + 10000)}`;
+      await createTestUser(role === "superadmin" ? null : tenant.id, role, {
+        email: `staff-${role}-${uniq()}@test.com`,
+        phone,
+      });
+      const send = await api.post("/auth/otp/send").send({ phone });
+      const res = await api.post("/auth/otp/verify").send({ phone, otp: send.body.devOtp });
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe("OTP_PATIENTS_ONLY");
+    },
+  );
+});
+
 describe("SMS providers (M8)", () => {
   const original = { ...env };
   afterEach(() => {

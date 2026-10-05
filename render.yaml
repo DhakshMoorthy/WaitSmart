@@ -47,6 +47,10 @@ services:
         sync: false
       - key: SMS_TEMPLATE_ID
         sync: false
+      # DEVELOPMENT ONLY: show the OTP on screen instead of sending an SMS. Anyone can then log in as any
+      # patient phone number (staff accounts are blocked from OTP login). Remove before real patients use it.
+      - key: EXPOSE_DEV_OTP
+        value: "true"
       - key: DEFAULT_TENANT_SLUG
         value: apollo-clinic
       - key: JWT_ACCESS_TTL

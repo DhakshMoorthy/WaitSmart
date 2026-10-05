@@ -42,6 +42,19 @@ async function resolveTenantId(tenantSlug?: string): Promise<string | null> {
   return null;
 }
 
+/**
+ * "Dev OTP" mode: the API returns the code in the response and the UI shows it, so no SMS is
+ * needed. It is on automatically outside production when no SMS provider is configured, and in
+ * production ONLY when EXPOSE_DEV_OTP=true is set deliberately (development stage).
+ *
+ * Because anyone can read the code in this mode, phone login must never reach privileged
+ * accounts: see the patients-only check in verifyAndLogin.
+ */
+export function isDevOtpMode(): boolean {
+  if (env.EXPOSE_DEV_OTP) return true;
+  return env.NODE_ENV !== "production" && !isSmsConfigured();
+}
+
 export async function sendOtp(phone: string) {
   const sendKey = `${OTP_SEND_PREFIX}${phone}`;
   const sends = await redis.incr(sendKey);
@@ -56,8 +69,6 @@ export async function sendOtp(phone: string) {
   await redis.set(key, otp, { EX: OTP_TTL_SECONDS });
   await redis.del(`${OTP_ATTEMPTS_PREFIX}${phone}`);
 
-  const smsConfigured = isSmsConfigured();
-
   // OTP is already stored — don't hold the HTTP response on SMS provider latency.
   void sendSms({
     to: phone,
@@ -65,12 +76,10 @@ export async function sendOtp(phone: string) {
     otp,
   });
 
-  // Never echo the code back in production — that would let anyone log in as any phone.
-  const exposeDevOtp = env.NODE_ENV !== "production" && !smsConfigured;
   return {
     message: "OTP sent successfully",
     expiresInSeconds: OTP_TTL_SECONDS,
-    ...(exposeDevOtp ? { devOtp: otp } : {}),
+    ...(isDevOtpMode() ? { devOtp: otp } : {}),
   };
 }
 
@@ -99,6 +108,12 @@ export async function verifyAndLogin(phone: string, otp: string, tenantSlug?: st
   let user = await db.query.users.findFirst({
     where: eq(users.phone, phone),
   });
+
+  // With the code visible to the caller, OTP must not be a way into staff/superadmin accounts
+  // (e.g. the seeded superadmin has a known phone number). Staff log in with email + password.
+  if (user && user.role !== "patient" && isDevOtpMode()) {
+    throw new AppError(403, "Staff accounts must sign in with email and password", "OTP_PATIENTS_ONLY");
+  }
 
   if (!user) {
     const tenantId = await resolveTenantId(tenantSlug);
