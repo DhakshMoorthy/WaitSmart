@@ -27,6 +27,9 @@ const envSchema = z.object({
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),
   SMS_TEMPLATE_ID: z.string().optional(),
+  // DEVELOPMENT ONLY: return the OTP in the API response (and show it in the UI) instead of
+  // sending an SMS. Anyone can then log in as any patient phone number. Never enable with real patients.
+  EXPOSE_DEV_OTP: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),
   TWILIO_ACCOUNT_SID: z.string().optional(),
   // Clinic that new phone/OTP patients join when the client does not say which clinic.
   DEFAULT_TENANT_SLUG: z.string().default("apollo-clinic"),

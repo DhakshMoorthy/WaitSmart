@@ -9,6 +9,7 @@ import crypto from "crypto";
 import { env } from "../../config/env.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { logger } from "../../utils/logger.js";
+import { seedChennaiClinics } from "./chennai-clinics.js";
 
 const isProd = env.NODE_ENV === "production";
 
@@ -57,25 +58,26 @@ async function seed() {
   // 1. Superadmin user (no tenant)
   const creds = superadminCredentials();
   if (!creds) {
-    logger.warn("SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set — skipping superadmin creation");
+    logger.warn("SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set ï¿½ skipping superadmin creation");
   } else {
-    const [superadmin] = await db
-      .insert(users)
-      .values({
-        name: "Super Admin",
-        email: creds.email,
-        phone: "+919999900000",
-        passwordHash: await hashPassword(creds.password),
-        role: "superadmin",
-        tenantId: null,
-      })
-      .onConflictDoNothing()
-      .returning();
-
-    if (superadmin) {
-      logger.info(`Created superadmin: ${superadmin.email}`);
-    } else {
+    // NOTE: users.email has no unique constraint, so onConflictDoNothing() would never fire and
+    // every deploy would insert another superadmin row. Check explicitly instead.
+    const existing = await db.query.users.findFirst({ where: eq(users.email, creds.email) });
+    if (existing) {
       logger.info("Superadmin already exists, skipping");
+    } else {
+      const [superadmin] = await db
+        .insert(users)
+        .values({
+          name: "Super Admin",
+          email: creds.email,
+          phone: "+919999900000",
+          passwordHash: await hashPassword(creds.password),
+          role: "superadmin",
+          tenantId: null,
+        })
+        .returning();
+      logger.info(`Created superadmin: ${superadmin.email}`);
     }
   }
 
@@ -92,7 +94,8 @@ async function seed() {
     .returning();
 
   if (!tenant) {
-    logger.info("Tenant already exists, skipping remaining seeds");
+    logger.info("Tenant already exists, skipping sample seeds");
+    await seedChennaiClinics();
     await pool.end();
     return;
   }
@@ -214,6 +217,8 @@ async function seed() {
     })
     .returning();
   logger.info(`Created patient: ${patient.email}`);
+
+  await seedChennaiClinics();
 
   logger.info("Seeding complete!");
   if (!isProd) {
