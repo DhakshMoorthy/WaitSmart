@@ -64,7 +64,7 @@ services:
   - type: web
     name: waitsmart-web
     runtime: static
-    region: singapore
+    # (no `region` here: Render rejects it on static sites and fails the whole Blueprint sync)
     plan: free
     buildCommand: npm install -g pnpm@9.15.4 && pnpm install && pnpm --filter @waitsmart/shared build && pnpm --filter waitsmart-queue-mvp build
     staticPublishPath: ./queue-mvp/dist
