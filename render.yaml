@@ -64,8 +64,7 @@ services:
   - type: web
     name: waitsmart-web
     runtime: static
-    # (no `region` here: Render rejects it on static sites and fails the whole Blueprint sync)
-    plan: free
+    # Static sites take neither `region` nor `plan` (global CDN, no compute plan); either one fails the Blueprint sync.
     buildCommand: npm install -g pnpm@9.15.4 && pnpm install && pnpm --filter @waitsmart/shared build && pnpm --filter waitsmart-queue-mvp build
     staticPublishPath: ./queue-mvp/dist
     routes:
