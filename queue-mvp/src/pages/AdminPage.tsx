@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctorsError, setDoctorsError] = useState('');
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [queue, setQueue] = useState<Queue | null>(null);
@@ -88,10 +89,16 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authenticated) return;
-    getDoctors().then((docs) => {
-      setDoctors(docs);
-      if (docs.length > 0 && !selectedDoctor) setSelectedDoctor(docs[0].id);
-    });
+    getDoctors()
+      .then((docs) => {
+        setDoctorsError('');
+        setDoctors(docs);
+        if (docs.length > 0 && !selectedDoctor) setSelectedDoctor(docs[0].id);
+      })
+      .catch((err) => {
+        // Never fail silently: an empty dropdown with "0 booked" looks like missing bookings.
+        setDoctorsError(err instanceof Error ? err.message : 'Could not load doctors.');
+      });
     if (!selectedDate && todayIso) {
       setSelectedDate(todayIso);
     }
@@ -332,6 +339,14 @@ export default function AdminPage() {
         <label className="mb-1 block text-xs font-semibold uppercase text-slate-400">
           Doctor
         </label>
+        {doctorsError && (
+          <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+            Could not load doctors: {doctorsError}
+          </p>
+        )}
+        {!doctorsError && doctors.length === 0 && (
+          <p className="mb-2 text-xs text-slate-400">No doctors found for this clinic yet.</p>
+        )}
         <div className="relative">
           <select
             value={selectedDoctor}
