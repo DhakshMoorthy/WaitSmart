@@ -13,7 +13,7 @@ import {
   updateAppointmentStatusAdmin,
   updateDoctorNotes,
 } from '../lib/db';
-import { post } from '../lib/api';
+import { post, logoutAndRevoke } from '../lib/api';
 import { logout, setTokens, setUser } from '../lib/auth';
 import { useIsAdmin } from '../hooks/useAuth';
 import {
@@ -156,7 +156,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
-    logout();
+    logoutAndRevoke();
     setAuthenticated(false);
     setEmail('');
     setPassword('');

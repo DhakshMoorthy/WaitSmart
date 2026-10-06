@@ -151,3 +151,18 @@ export function wakeApi() {
 export function apiBaseUrl() {
   return BASE_URL;
 }
+
+/**
+ * Sign out: clear local auth immediately, then tell the server to revoke the refresh token
+ * (best effort - a network failure must never keep the user signed in locally).
+ */
+export function logoutAndRevoke() {
+  const { refreshToken } = getAuth();
+  logout();
+  if (!refreshToken) return;
+  fetch(`${BASE_URL}/auth/logout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  }).catch(() => {});
+}
