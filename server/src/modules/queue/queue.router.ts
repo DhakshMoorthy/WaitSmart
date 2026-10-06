@@ -5,7 +5,7 @@ import * as queueController from "./queue.controller.js";
 
 export const queueRouter = Router();
 
-queueRouter.use(requireAuth, requireTenant, requireRole("admin", "doctor"));
+queueRouter.use(requireAuth, requireTenant, requireRole("admin", "doctor", "superadmin"));
 
 queueRouter.post("/next", queueController.next);
 queueRouter.post("/skip", queueController.skip);
