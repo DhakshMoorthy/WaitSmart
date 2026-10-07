@@ -6,6 +6,7 @@ import { tenants } from "../schema/tenants.js";
 import { users } from "../schema/users.js";
 import { logger } from "../../utils/logger.js";
 import { LEGACY_SAMPLE_EMAILS } from "./known-passwords.js";
+import { loadDataset } from "./datasets.js";
 
 /** Clinics created by the ORIGINAL sample seed (fake addresses). Deleting a clinic cascades to its doctors, slots and appointments. */
 const LEGACY_CLINIC_NAMES = ["Apollo Main Branch", "Apollo — Anna Nagar"];
@@ -15,7 +16,6 @@ const LEGACY_USER_EMAILS = LEGACY_SAMPLE_EMAILS.filter((e) => e !== "superadmin@
 
 const OLD_DEFAULT_SUPERADMIN = "superadmin@waitsmart.app";
 const SAMPLE_TENANT_NAME = "Apollo Clinic";
-export const DEMO_TENANT_NAME = "Chennai Demo Clinics";
 
 /**
  * One-time-style cleanup, safe to run on every deploy (it only matches exact, known-fake rows):
@@ -23,7 +23,7 @@ export const DEMO_TENANT_NAME = "Chennai Demo Clinics";
  *  - sample users that shipped with published passwords, and debris from manual smoke tests
  *  - duplicate superadmin rows created by an old seed bug (users.email is not unique)
  *  - the old default superadmin account, once a different SUPERADMIN_EMAIL is configured
- *  - the default tenant's sample display name
+ *  - the default tenant's sample display name (renamed to the active dataset's tenant name)
  */
 export async function cleanupLegacySampleData() {
   const tenant = await db.query.tenants.findFirst({ where: eq(tenants.slug, env.DEFAULT_TENANT_SLUG) });
@@ -38,11 +38,12 @@ export async function cleanupLegacySampleData() {
     }
 
     if (tenant.name === SAMPLE_TENANT_NAME) {
+      const { tenantName } = loadDataset();
       await db
         .update(tenants)
-        .set({ name: DEMO_TENANT_NAME, branding: { primaryColor: "#2563eb", appName: "WaitSmart" }, updatedAt: new Date() })
+        .set({ name: tenantName, branding: { primaryColor: "#2563eb", appName: "WaitSmart" }, updatedAt: new Date() })
         .where(eq(tenants.id, tenant.id));
-      logger.info(`Cleanup: renamed default tenant to "${DEMO_TENANT_NAME}"`);
+      logger.info(`Cleanup: renamed default tenant to "${tenantName}"`);
     }
   }
 

@@ -21,6 +21,7 @@ import { formatTime12 } from '../lib/dates';
 import { isValidPhone, normalizePhone } from '../lib/phone';
 import { formatDisplayDate, getDateOptions } from '../lib/slotUtils';
 import type { Doctor } from '../lib/types';
+import DoctorAvatar from '../components/DoctorAvatar';
 
 interface FamilyMember {
   id: string;
@@ -245,11 +246,7 @@ export default function BookPage() {
       )}
 
       <div className="flex gap-3 rounded-2xl bg-white p-3 card-shadow">
-        <img
-          src={doctor.photo_url}
-          alt={doctor.name}
-          className="h-16 w-16 rounded-xl object-cover"
-        />
+        <DoctorAvatar gender={doctor.gender} name={doctor.name} className="h-16 w-16 shrink-0 rounded-xl" />
         <div>
           <h1 className="font-bold text-slate-900">{doctor.name}</h1>
           <p className="text-sm text-slate-500">{doctor.specialization}</p>

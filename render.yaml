@@ -59,12 +59,69 @@ services:
         sync: false
       - key: DEFAULT_TENANT_SLUG
         value: apollo-clinic
+      - key: SEED_DATASET
+        value: chennai
       - key: JWT_ACCESS_TTL
         value: "15m"
       - key: JWT_REFRESH_TTL
         value: "30d"
       - key: CORS_ORIGINS
         value: "https://klinicals.com,https://www.klinicals.com,https://app.klinicals.com,https://waitsmart-web.onrender.com,https://wait-smart-admin.vercel.app"
+    healthCheckPath: /health
+
+  # ---------------------------------------------------------------------------------------------
+  # TEST ENVIRONMENT (test.klinicals.com): same code as production, US/UK demo hospitals.
+  # Shares production's Postgres + Redis for now (see docs/TEST_ENV.md). Isolation comes from its own
+  #   - default tenant (DEFAULT_TENANT_SLUG), so patients/clinics/admins never mix with production,
+  #   - dataset + test account names/phones (SEED_DATASET),
+  #   - Redis key prefix (REDIS_KEY_PREFIX) and its own JWT secrets (a prod token is not valid here).
+  # The superadmin is shared (same users table): sign in with the production superadmin credentials.
+  # ---------------------------------------------------------------------------------------------
+  - type: web
+    name: waitsmart-api-test
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install -g pnpm@9.15.4 && NODE_ENV=development pnpm install --filter @waitsmart/server... && pnpm run build:deploy && cd server && npx tsx src/db/migrate.ts && npx tsx src/db/seeds/index.ts
+    startCommand: node server/dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: waitsmart-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: waitsmart-redis
+          type: keyvalue
+          property: connectionString
+      - key: REDIS_KEY_PREFIX
+        value: "test:"
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: "15m"
+      - key: JWT_REFRESH_TTL
+        value: "30d"
+      - key: DEFAULT_TENANT_SLUG
+        value: us-uk-demo
+      - key: SEED_DATASET
+        value: us-uk
+      - key: SEED_TEST_DATA
+        value: "true"
+      # Password for admin@us-uk.demo.waitsmart.test and the doctor.<hospital>@... logins (8+ chars). Set in the dashboard.
+      - key: TEST_ACCOUNTS_PASSWORD
+        sync: false
+      # DEVELOPMENT ONLY (see the production service): OTP shown on screen.
+      - key: EXPOSE_DEV_OTP
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "https://test.klinicals.com"
     healthCheckPath: /health
 
   - type: web

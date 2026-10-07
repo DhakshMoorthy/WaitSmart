@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { and, eq } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
@@ -7,45 +6,35 @@ import { doctors } from "../schema/doctors.js";
 import { doctorSchedules } from "../schema/doctorSchedules.js";
 import { tenants } from "../schema/tenants.js";
 import { logger } from "../../utils/logger.js";
-
-interface ClinicSeed {
-  name: string;
-  address: string;
-  hours: string;
-  schedule: { days: number[]; start: string; end: string };
-  sources: string[];
-  doctors: { name: string; specialization: string; experienceYears: number }[];
-}
+import { loadDataset, type DatasetId } from "./datasets.js";
 
 const SLOT_MINUTES = 30;
 
-function loadClinics(): ClinicSeed[] {
-  const raw = readFileSync(new URL("./data/chennai-clinics.json", import.meta.url), "utf8");
-  return (JSON.parse(raw) as { clinics: ClinicSeed[] }).clinics;
-}
-
 /**
- * Adds real Chennai clinics + doctors (public listing data, see data/chennai-clinics.json) to the
- * default tenant so patients signing in by phone can find and book them.
- * Idempotent: existing clinics/doctors (matched by name) are left untouched. Never deletes anything.
- * Set SEED_CHENNAI_CLINICS=false to skip.
+ * Adds the clinics + doctors of the active dataset (SEED_DATASET, see datasets.ts) to the default tenant
+ * so patients signing in by phone can find and book them.
+ * Idempotent: existing clinics/doctors (matched by name) are left untouched, except that a gender that is
+ * now specified in the dataset is filled in. Never deletes anything.
+ * Set SEED_CHENNAI_CLINICS=false to skip (kept for backwards compatibility).
  */
-export async function seedChennaiClinics() {
+export async function seedDemoClinics(datasetId?: DatasetId) {
   if (process.env.SEED_CHENNAI_CLINICS === "false") {
-    logger.info("SEED_CHENNAI_CLINICS=false — skipping Chennai clinics");
+    logger.info("SEED_CHENNAI_CLINICS=false - skipping demo clinics");
     return;
   }
 
+  const dataset = loadDataset(datasetId);
   const tenant = await db.query.tenants.findFirst({ where: eq(tenants.slug, env.DEFAULT_TENANT_SLUG) });
   if (!tenant) {
-    logger.warn(`Default tenant "${env.DEFAULT_TENANT_SLUG}" not found — skipping Chennai clinics`);
+    logger.warn(`Default tenant "${env.DEFAULT_TENANT_SLUG}" not found - skipping demo clinics`);
     return;
   }
 
   let newClinics = 0;
   let newDoctors = 0;
+  let genderFilled = 0;
 
-  for (const c of loadClinics()) {
+  for (const c of dataset.clinics) {
     let clinic = await db.query.clinics.findFirst({
       where: and(eq(clinics.tenantId, tenant.id), eq(clinics.name, c.name)),
     });
@@ -61,7 +50,13 @@ export async function seedChennaiClinics() {
       const existing = await db.query.doctors.findFirst({
         where: and(eq(doctors.tenantId, tenant.id), eq(doctors.clinicId, clinic.id), eq(doctors.name, d.name)),
       });
-      if (existing) continue;
+      if (existing) {
+        if (d.gender && existing.gender !== d.gender) {
+          await db.update(doctors).set({ gender: d.gender, updatedAt: new Date() }).where(eq(doctors.id, existing.id));
+          genderFilled++;
+        }
+        continue;
+      }
 
       const [doctor] = await db
         .insert(doctors)
@@ -71,6 +66,7 @@ export async function seedChennaiClinics() {
           name: d.name,
           specialization: d.specialization,
           experienceYears: d.experienceYears,
+          gender: d.gender ?? null,
         })
         .returning();
       newDoctors++;
@@ -88,5 +84,7 @@ export async function seedChennaiClinics() {
     }
   }
 
-  logger.info(`Chennai clinics seeded: ${newClinics} new clinics, ${newDoctors} new doctors`);
+  logger.info(
+    `Demo clinics (${dataset.id}) seeded: ${newClinics} new clinics, ${newDoctors} new doctors, ${genderFilled} genders filled`,
+  );
 }

@@ -7,8 +7,9 @@ import { users } from "../schema/users.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { logger } from "../../utils/logger.js";
 import { KNOWN_DEV_PASSWORDS, LEGACY_SAMPLE_EMAILS } from "./known-passwords.js";
-import { cleanupLegacySampleData, DEMO_TENANT_NAME } from "./legacy-cleanup.js";
-import { seedChennaiClinics } from "./chennai-clinics.js";
+import { cleanupLegacySampleData } from "./legacy-cleanup.js";
+import { loadDataset } from "./datasets.js";
+import { seedDemoClinics } from "./demo-clinics.js";
 import { seedTestData } from "./test-data.js";
 
 const isProd = env.NODE_ENV === "production";
@@ -77,21 +78,23 @@ async function seed() {
   }
 
   // 2. Default tenant: the clinic group every phone-login patient joins.
+  const dataset = loadDataset();
+  logger.info(`Dataset: ${dataset.id}`);
   const [created] = await db
     .insert(tenants)
     .values({
-      name: DEMO_TENANT_NAME,
+      name: dataset.tenantName,
       slug: env.DEFAULT_TENANT_SLUG,
-      subdomain: "apollo",
+      subdomain: dataset.tenantSubdomain,
       branding: { primaryColor: "#2563eb", appName: "WaitSmart" },
     })
     .onConflictDoNothing()
     .returning();
   if (created) logger.info(`Created default tenant: ${created.name} (${created.id})`);
 
-  // 3. Remove the fake sample data from earlier versions, then load the real clinics + test data.
+  // 3. Remove the fake sample data from earlier versions, then load the dataset's clinics + test data.
   await cleanupLegacySampleData();
-  await seedChennaiClinics();
+  await seedDemoClinics();
   await seedTestData();
 
   logger.info("Seeding complete!");

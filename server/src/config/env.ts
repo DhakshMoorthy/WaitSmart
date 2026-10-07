@@ -27,6 +27,8 @@ const envSchema = z.object({
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().optional(),
   SMS_TEMPLATE_ID: z.string().optional(),
+  // Prepended to every Redis key. Lets several environments (prod, test) share one Redis safely.
+  REDIS_KEY_PREFIX: z.string().default(""),
   // DEVELOPMENT ONLY: return the OTP in the API response (and show it in the UI) instead of
   // sending an SMS. Anyone can then log in as any patient phone number. Never enable with real patients.
   EXPOSE_DEV_OTP: z.enum(["true", "false"]).default("false").transform((v) => v === "true"),

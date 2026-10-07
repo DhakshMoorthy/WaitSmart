@@ -3,7 +3,7 @@
 Development data so every part of the app can be exercised without typing anything in first.
 Loaded by the database seed (`server/src/db/seeds/`), which Render runs on every deploy.
 Everything is **idempotent** (re-running adds nothing) and lives in the default tenant
-(`DEFAULT_TENANT_SLUG`, default `apollo-clinic`, shown as "Chennai Demo Clinics").
+(`DEFAULT_TENANT_SLUG`, default `apollo-clinic`, shown as "Chennai Demo Clinics"). The accounts below are the **chennai** dataset; the test environment's are in [TEST_ENV.md](TEST_ENV.md).
 
 > Development only. Turn it off (`SEED_TEST_DATA=false`) and delete the test accounts before real patients use the product.
 
@@ -13,7 +13,8 @@ Everything is **idempotent** (re-running adds nothing) and lives in the default 
 |---|---|
 | `SEED_TEST_DATA=true` | Creates test patients and demo bookings. Already `true` in `render.yaml`. Default off locally. |
 | `TEST_ACCOUNTS_PASSWORD` | 8+ characters, not a published password (`Admin@1234`, `Doctor@1234`, `Patient@1234`). If it is shorter, the admin/doctor logins are silently NOT created (a warning is logged). Also creates the clinic admin and doctor logins. Set it in the Render dashboard (never commit it). Changing it updates the passwords on the next deploy. |
-| `SEED_CHENNAI_CLINICS=false` | Skips the 5 real Chennai clinics. |
+| `SEED_DATASET` | Which clinics/doctors/patients to load: `chennai` (default, production) or `us-uk` (test environment, see [TEST_ENV.md](TEST_ENV.md)). Each dataset has its own default tenant, test-account emails (`@demo.waitsmart.test` vs `@us-uk.demo.waitsmart.test`) and phone ranges. |
+| `SEED_CHENNAI_CLINICS=false` | Skips loading the dataset's clinics. |
 | `EXPOSE_DEV_OTP=true` | Shows the OTP on screen, so patients can sign in with just a phone number. |
 
 ## Accounts
