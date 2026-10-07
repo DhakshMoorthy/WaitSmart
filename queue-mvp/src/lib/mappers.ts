@@ -7,10 +7,6 @@ dayjs.extend(utc);
 
 const CLINIC_IMG =
   'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80';
-const DOC_MALE =
-  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80';
-const DOC_FEMALE =
-  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&q=80';
 
 export function slotTimeToHHMM(slotTime: string): string {
   if (!slotTime) return '00:00';
@@ -52,14 +48,14 @@ export function mapDoctor(
     clinicId: string;
     specialization: string;
     experienceYears?: number;
-    photo_url?: string;
+    gender?: string | null;
   },
   slotDurationMinutes = 30,
 ) {
-  const isFemale =
-    doctor.specialization?.toLowerCase().includes('pediatr') ||
-    doctor.name?.toLowerCase().includes('priya') ||
-    doctor.name?.toLowerCase().includes('vandana');
+  // The avatar is chosen from the doctor's stored gender only. It used to be guessed from names and
+  // specialties, and every doctor shared one of two stock photos.
+  const gender: 'male' | 'female' | null =
+    doctor.gender === 'male' ? 'male' : doctor.gender === 'female' ? 'female' : null;
 
   return {
     id: doctor.id,
@@ -68,7 +64,7 @@ export function mapDoctor(
     specialization: doctor.specialization,
     experience_years: doctor.experienceYears ?? 0,
     slot_duration_minutes: slotDurationMinutes,
-    photo_url: doctor.photo_url || (isFemale ? DOC_FEMALE : DOC_MALE),
+    gender,
   };
 }
 

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { and, eq, or } from "drizzle-orm";
-import { redis } from "../../config/redis.js";
+import { redis, redisKey } from "../../config/redis.js";
 import { db } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import { users, tenants, doctors } from "../../db/schema/index.js";
@@ -9,9 +9,9 @@ import { issueTokens } from "./auth.tokens.js";
 import { sendSms, isSmsConfigured } from "../../services/notifications/sms.js";
 
 const OTP_TTL_SECONDS = 300; // 5 minutes
-const OTP_PREFIX = "otp:";
-const OTP_ATTEMPTS_PREFIX = "otp_attempts:";
-const OTP_SEND_PREFIX = "otp_send:";
+const otpKey = (phone: string) => redisKey(`otp:${phone}`);
+const attemptsKey = (phone: string) => redisKey(`otp_attempts:${phone}`);
+const sendKey = (phone: string) => redisKey(`otp_send:${phone}`);
 const MAX_VERIFY_ATTEMPTS = 5; // wrong guesses before the code is burned
 const MAX_SENDS_PER_HOUR = 5; // OTP requests per phone per hour
 
@@ -56,18 +56,15 @@ export function isDevOtpMode(): boolean {
 }
 
 export async function sendOtp(phone: string) {
-  const sendKey = `${OTP_SEND_PREFIX}${phone}`;
-  const sends = await redis.incr(sendKey);
-  if (sends === 1) await redis.expire(sendKey, 3600);
+  const sends = await redis.incr(sendKey(phone));
+  if (sends === 1) await redis.expire(sendKey(phone), 3600);
   if (sends > MAX_SENDS_PER_HOUR) {
     throw new AppError(429, "Too many OTP requests, try again later", "OTP_RATE_LIMITED");
   }
 
   const otp = generateOtp();
-  const key = `${OTP_PREFIX}${phone}`;
-
-  await redis.set(key, otp, { EX: OTP_TTL_SECONDS });
-  await redis.del(`${OTP_ATTEMPTS_PREFIX}${phone}`);
+  await redis.set(otpKey(phone), otp, { EX: OTP_TTL_SECONDS });
+  await redis.del(attemptsKey(phone));
 
   // OTP is already stored — don't hold the HTTP response on SMS provider latency.
   void sendSms({
@@ -84,30 +81,34 @@ export async function sendOtp(phone: string) {
 }
 
 export async function verifyAndLogin(phone: string, otp: string, tenantSlug?: string) {
-  const key = `${OTP_PREFIX}${phone}`;
-  const attemptsKey = `${OTP_ATTEMPTS_PREFIX}${phone}`;
+  const key = otpKey(phone);
+  const attKey = attemptsKey(phone);
   const stored = await redis.get(key);
 
   if (!stored) {
     throw new AppError(400, "OTP expired or not found", "OTP_EXPIRED");
   }
   if (!safeEqual(stored, otp)) {
-    const attempts = await redis.incr(attemptsKey);
-    if (attempts === 1) await redis.expire(attemptsKey, OTP_TTL_SECONDS);
+    const attempts = await redis.incr(attKey);
+    if (attempts === 1) await redis.expire(attKey, OTP_TTL_SECONDS);
     if (attempts >= MAX_VERIFY_ATTEMPTS) {
-      await redis.del([key, attemptsKey]);
+      await redis.del([key, attKey]);
       throw new AppError(429, "Too many wrong attempts, request a new OTP", "OTP_LOCKED");
     }
     throw new AppError(400, "Invalid OTP", "INVALID_OTP");
   }
 
   // Consume OTP
-  await redis.del([key, attemptsKey]);
+  await redis.del([key, attKey]);
 
-  // Find or create user by phone
-  let user = await db.query.users.findFirst({
-    where: eq(users.phone, phone),
-  });
+  // A patient identity belongs to ONE clinic group (tenant): the same phone number is a separate patient
+  // in each tenant. That keeps environments that share a database (prod and test) from leaking into each other.
+  const targetTenantId = await resolveTenantId(tenantSlug);
+  const matches = await db.select().from(users).where(eq(users.phone, phone));
+  let user =
+    matches.find((u) => u.role === "patient" && !!u.tenantId && u.tenantId === targetTenantId) ??
+    matches.find((u) => u.role !== "patient") ?? // staff / superadmin keep working by phone (when not in dev-OTP mode)
+    matches.find((u) => u.role === "patient" && !u.tenantId); // legacy patient without a clinic: backfilled below
 
   // With the code visible to the caller, OTP must not be a way into staff/superadmin accounts
   // (e.g. the seeded superadmin has a known phone number). Staff log in with email + password.
@@ -116,7 +117,7 @@ export async function verifyAndLogin(phone: string, otp: string, tenantSlug?: st
   }
 
   if (!user) {
-    const tenantId = await resolveTenantId(tenantSlug);
+    const tenantId = targetTenantId;
     if (!tenantId) {
       throw new AppError(
         503,
@@ -126,11 +127,15 @@ export async function verifyAndLogin(phone: string, otp: string, tenantSlug?: st
     }
 
     const placeholderHash = crypto.randomBytes(32).toString("hex");
+    // users.email is not unique, but keep OTP patients' emails distinct across tenants anyway.
+    const digits = phone.replace(/\+/g, "");
+    const baseEmail = `${digits}@otp.waitsmart.app`;
+    const emailTaken = await db.query.users.findFirst({ where: eq(users.email, baseEmail) });
     const [newUser] = await db
       .insert(users)
       .values({
         name: `Patient ${phone.slice(-4)}`,
-        email: `${phone.replace(/\+/g, "")}@otp.waitsmart.app`,
+        email: emailTaken ? `${digits}.${tenantId.slice(0, 8)}@otp.waitsmart.app` : baseEmail,
         phone,
         passwordHash: placeholderHash,
         role: "patient",
@@ -140,7 +145,7 @@ export async function verifyAndLogin(phone: string, otp: string, tenantSlug?: st
     user = newUser;
   } else if (!user.tenantId && user.role === "patient") {
     // Backfill tenant for patients created before default-tenant assignment
-    const tenantId = await resolveTenantId(tenantSlug);
+    const tenantId = targetTenantId;
     if (tenantId) {
       const [updated] = await db
         .update(users)

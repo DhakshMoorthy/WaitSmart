@@ -32,6 +32,7 @@ import {
 import { useMinuteTick } from '../hooks/useMinuteTick';
 import type { Appointment, Doctor, Queue } from '../lib/types';
 import LiveBadge from '../components/LiveBadge';
+import DoctorAvatar from '../components/DoctorAvatar';
 
 export default function TokenPage() {
   const { appointmentId } = useParams<{ appointmentId: string }>();
@@ -228,11 +229,7 @@ export default function TokenPage() {
       </div>
 
       <div className="flex gap-3 rounded-2xl bg-white p-3 card-shadow">
-        <img
-          src={doctor.photo_url}
-          alt={doctor.name}
-          className="h-14 w-14 rounded-xl object-cover"
-        />
+        <DoctorAvatar gender={doctor.gender} name={doctor.name} className="h-14 w-14 shrink-0 rounded-xl" />
         <div>
           <p className="font-semibold text-slate-900">{doctor.name}</p>
           <p className="text-sm text-slate-500">{doctor.specialization}</p>

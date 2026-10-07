@@ -22,7 +22,8 @@ export interface Doctor {
   specialization: string;
   experience_years: number;
   slot_duration_minutes: number;
-  photo_url: string;
+  /** Picks the male/female placeholder avatar; null/absent = neutral. */
+  gender?: 'male' | 'female' | null;
 }
 
 export interface QueueLastAction {

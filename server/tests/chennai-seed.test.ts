@@ -4,7 +4,7 @@ import { api, createTestTenant, createTestUser, patientToken, nextWeekday } from
 import { db } from "../src/config/db.js";
 import { env } from "../src/config/env.js";
 import { clinics, doctors, doctorSchedules } from "../src/db/schema/index.js";
-import { seedChennaiClinics } from "../src/db/seeds/chennai-clinics.js";
+import { seedDemoClinics } from "../src/db/seeds/demo-clinics.js";
 
 describe("Chennai clinics seed", () => {
   let tenantId: string;
@@ -15,7 +15,7 @@ describe("Chennai clinics seed", () => {
     tenantId = tenant.id;
     const patient = await createTestUser(tenantId, "patient", { email: `seed-patient-${Date.now()}@test.com` });
     token = patientToken(patient.id, tenantId);
-    await seedChennaiClinics();
+    await seedDemoClinics("chennai");
   });
 
   it("creates 5 clinics with doctors and schedules", async () => {
@@ -33,8 +33,8 @@ describe("Chennai clinics seed", () => {
 
   it("is idempotent: running it again adds nothing", async () => {
     const before = (await db.select().from(doctors).where(eq(doctors.tenantId, tenantId))).length;
-    await seedChennaiClinics();
-    await seedChennaiClinics();
+    await seedDemoClinics("chennai");
+    await seedDemoClinics("chennai");
     const after = (await db.select().from(doctors).where(eq(doctors.tenantId, tenantId))).length;
     const clinicCount = (await db.select().from(clinics).where(eq(clinics.tenantId, tenantId))).length;
     expect(after).toBe(before);

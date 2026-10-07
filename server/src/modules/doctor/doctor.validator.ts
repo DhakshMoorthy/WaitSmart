@@ -6,6 +6,7 @@ export const createDoctorBody = z.object({
   name: z.string().min(2).max(200),
   specialization: z.string().min(2).max(200),
   experienceYears: z.number().int().min(0).max(80).default(0),
+  gender: z.enum(["male", "female"]).nullable().optional(),
 });
 
 export const updateDoctorBody = createDoctorBody.partial().omit({ clinicId: true });

@@ -1,42 +1,130 @@
 {
   "_comment": "Development demo data compiled from public listings on 2026-10-05. Addresses/hours/doctors can change and several experience figures come from third-party directories, so verify before any real use. Doctors are given generic 30-minute Mon-Sat slots inside the clinic's published OPD window; no phone numbers or personal data are stored.",
+  "tenantName": "Chennai Demo Clinics",
+  "tenantSubdomain": "apollo",
+  "utcOffsetMinutes": 330,
+  "testAccounts": {
+    "emailDomain": "demo.waitsmart.test",
+    "adminPhone": "+919000010000",
+    "doctorPhoneBase": "+91900001000",
+    "patientPhoneBase": "+91900002000"
+  },
+  "demoBookingClinics": [
+    "apollo",
+    "kauvery",
+    "miot"
+  ],
+  "patients": [
+    "Arjun Menon",
+    "Divya Krishnan",
+    "Karthik Raja",
+    "Meena Subramanian",
+    "Rahul Iyer",
+    "Lakshmi Narayanan",
+    "Sanjay Kumar",
+    "Ananya Reddy"
+  ],
   "clinics": [
     {
+      "key": "apollo",
       "name": "Apollo Clinic - Velachery",
       "address": "Plot No. 46, 7th Street, Near Vijayanagar Bus Stand, Taramani Road, Velachery, Chennai 600042",
       "hours": "10:00 AM - 6:00 PM (Mon-Sat)",
-      "schedule": { "days": [1, 2, 3, 4, 5, 6], "start": "10:00", "end": "18:00" },
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "10:00",
+        "end": "18:00"
+      },
       "sources": [
         "https://apolloclinic.com/clinic-locator/india/tamil-nadu/chennai/velachery",
         "https://bajajfinservhealth.in/hospitals/chennai/apollo-clinic-velachery-velachery"
       ],
       "doctors": [
-        { "name": "Dr. Shanmuga Sundaram D", "specialization": "Cardiologist", "experienceYears": 29 },
-        { "name": "Dr. Rajsri J Shankar", "specialization": "Obstetrician & Gynaecologist", "experienceYears": 26 },
-        { "name": "Dr. Suprabha Ma", "specialization": "Dermatologist", "experienceYears": 16 },
-        { "name": "Dr. Shaalini C", "specialization": "Paediatrician", "experienceYears": 9 }
+        {
+          "name": "Dr. Shanmuga Sundaram D",
+          "specialization": "Cardiologist",
+          "experienceYears": 29
+        },
+        {
+          "name": "Dr. Rajsri J Shankar",
+          "specialization": "Obstetrician & Gynaecologist",
+          "experienceYears": 26
+        },
+        {
+          "name": "Dr. Suprabha Ma",
+          "specialization": "Dermatologist",
+          "experienceYears": 16
+        },
+        {
+          "name": "Dr. Shaalini C",
+          "specialization": "Paediatrician",
+          "experienceYears": 9
+        }
       ]
     },
     {
+      "key": "kauvery",
       "name": "Kauvery Hospital - Alwarpet",
       "address": "81, TTK Road Junction, CIT Colony, Alwarpet, Chennai 600018",
       "hours": "8:30 AM - 5:00 PM (Mon-Sat)",
-      "schedule": { "days": [1, 2, 3, 4, 5, 6], "start": "08:30", "end": "17:00" },
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "08:30",
+        "end": "17:00"
+      },
       "sources": [
         "https://www.bajajfinservhealth.in/hospitals/chennai/kauvery-hospital-mylapore",
         "https://www.logintohealth.com/amp/cardiologist/k-p.sureshkumar"
       ],
       "doctors": [
-        { "name": "Dr. Manoj Sivaramakrishnan", "specialization": "Cardiologist", "experienceYears": 28 },
-        { "name": "Dr. K. P. Suresh Kumar", "specialization": "Cardiologist", "experienceYears": 25 },
-        { "name": "Dr. Priya Chockalingam", "specialization": "Cardiologist", "experienceYears": 24 }
+        {
+          "name": "Dr. Manoj Sivaramakrishnan",
+          "specialization": "Cardiologist",
+          "experienceYears": 28
+        },
+        {
+          "name": "Dr. K. P. Suresh Kumar",
+          "specialization": "Cardiologist",
+          "experienceYears": 25
+        },
+        {
+          "name": "Dr. Priya Chockalingam",
+          "specialization": "Cardiologist",
+          "experienceYears": 24
+        }
       ]
     },
     {
+      "key": "miot",
       "name": "MIOT International - Manapakkam",
       "address": "4/112, Mount Poonamallee Road, Sathya Nagar, Manapakkam, Chennai 600089",
       "hours": "8:30 AM - 5:00 PM (Mon-Sat)",
-      "schedule": { "days": [1, 2, 3, 4, 5, 6], "start": "08:30", "end": "17:00" },
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "08:30",
+        "end": "17:00"
+      },
       "sources": [
         "https://en.wikipedia.org/wiki/MIOT_International_Hospital",
         "https://credihealth.com/doctor/vijay-balaji-cardiologist",
@@ -45,34 +133,90 @@
         "https://credihealth.com/doctor/mahesh-karthik-orthopedist"
       ],
       "doctors": [
-        { "name": "Dr. Shyam Kumar", "specialization": "Interventional Cardiologist", "experienceYears": 17 },
-        { "name": "Dr. Vijay Balaji", "specialization": "Interventional Cardiologist", "experienceYears": 10 },
-        { "name": "Dr. Ram Prasad J", "specialization": "Orthopaedic Surgeon", "experienceYears": 38 },
-        { "name": "Dr. Mahesh Karthik", "specialization": "Orthopaedic Surgeon", "experienceYears": 8 }
+        {
+          "name": "Dr. Shyam Kumar",
+          "specialization": "Interventional Cardiologist",
+          "experienceYears": 17
+        },
+        {
+          "name": "Dr. Vijay Balaji",
+          "specialization": "Interventional Cardiologist",
+          "experienceYears": 10
+        },
+        {
+          "name": "Dr. Ram Prasad J",
+          "specialization": "Orthopaedic Surgeon",
+          "experienceYears": 38
+        },
+        {
+          "name": "Dr. Mahesh Karthik",
+          "specialization": "Orthopaedic Surgeon",
+          "experienceYears": 8
+        }
       ]
     },
     {
+      "key": "fortis",
       "name": "Fortis Malar Hospital - Adyar",
       "address": "No. 52, 1st Main Road, Gandhi Nagar, Adyar, Chennai 600020",
       "hours": "10:00 AM - 1:00 PM, 5:00 PM - 8:00 PM (Mon-Sat)",
-      "schedule": { "days": [1, 2, 3, 4, 5, 6], "start": "10:00", "end": "13:00" },
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "10:00",
+        "end": "13:00"
+      },
       "sources": [
         "https://bajajfinservhealth.in/hospitals/chennai/fortis-malar-hospital-adyar-2",
         "https://www.hexahealth.com/chennai/hospital/fortis-malar-hospital-adyar/doctors-list",
         "https://credihealth.com/doctor/sanjiv-agrawal-cardiologist"
       ],
       "doctors": [
-        { "name": "Dr. Sanjiv Agrawal", "specialization": "Interventional Cardiologist", "experienceYears": 25 },
-        { "name": "Dr. Mohan Rao", "specialization": "General Surgeon", "experienceYears": 41 },
-        { "name": "Dr. Rajni Gupta", "specialization": "Radiation Oncologist", "experienceYears": 29 },
-        { "name": "Prof. A Shanmuga Sundaram", "specialization": "Orthopaedic Surgeon", "experienceYears": 27 }
+        {
+          "name": "Dr. Sanjiv Agrawal",
+          "specialization": "Interventional Cardiologist",
+          "experienceYears": 25
+        },
+        {
+          "name": "Dr. Mohan Rao",
+          "specialization": "General Surgeon",
+          "experienceYears": 41
+        },
+        {
+          "name": "Dr. Rajni Gupta",
+          "specialization": "Radiation Oncologist",
+          "experienceYears": 29
+        },
+        {
+          "name": "Prof. A Shanmuga Sundaram",
+          "specialization": "Orthopaedic Surgeon",
+          "experienceYears": 27
+        }
       ]
     },
     {
+      "key": "sriramachandra",
       "name": "Sri Ramachandra Medical Centre - Porur",
       "address": "No. 1, Ramachandra Nagar, Porur, Chennai 600116",
       "hours": "8:00 AM - 4:00 PM, evening clinics 4:00 PM - 8:00 PM (Mon-Sat)",
-      "schedule": { "days": [1, 2, 3, 4, 5, 6], "start": "08:00", "end": "16:00" },
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "08:00",
+        "end": "16:00"
+      },
       "sources": [
         "https://srmc.sriramachandra.edu/contact-us/",
         "https://srmc.sriramachandra.edu/?p=216",
@@ -80,9 +224,21 @@
         "https://credihealth.com/doctor/dorai-kumar-orthopedist"
       ],
       "doctors": [
-        { "name": "Dr. Dorai Kumar", "specialization": "Orthopaedic Surgeon", "experienceYears": 32 },
-        { "name": "Dr. Syed Afroze Hussain", "specialization": "Surgical Oncologist", "experienceYears": 31 },
-        { "name": "Dr. Vignesh Jayabalan", "specialization": "Orthopaedic Surgeon", "experienceYears": 25 }
+        {
+          "name": "Dr. Dorai Kumar",
+          "specialization": "Orthopaedic Surgeon",
+          "experienceYears": 32
+        },
+        {
+          "name": "Dr. Syed Afroze Hussain",
+          "specialization": "Surgical Oncologist",
+          "experienceYears": 31
+        },
+        {
+          "name": "Dr. Vignesh Jayabalan",
+          "specialization": "Orthopaedic Surgeon",
+          "experienceYears": 25
+        }
       ]
     }
   ]

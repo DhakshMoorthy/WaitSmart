@@ -17,6 +17,8 @@ export const doctors = pgTable(
     name: text("name").notNull(),
     specialization: text("specialization").notNull(),
     experienceYears: integer("experience_years").notNull().default(0),
+    /** "male" | "female" | null. Only picks the placeholder avatar; null = neutral. */
+    gender: text("gender"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

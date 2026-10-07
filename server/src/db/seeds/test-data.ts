@@ -8,6 +8,7 @@ import { logger } from "../../utils/logger.js";
 import { createBooking, getAvailability } from "../../modules/booking/booking.service.js";
 import { nextPatient } from "../../modules/queue/queue.service.js";
 import { KNOWN_DEV_PASSWORDS } from "./known-passwords.js";
+import { loadDataset, type Dataset, type DatasetId } from "./datasets.js";
 
 /**
  * Development/test data for exercising every part of the app. Opt-in: SEED_TEST_DATA=true.
@@ -17,32 +18,21 @@ import { KNOWN_DEV_PASSWORDS } from "./known-passwords.js";
  * and the on-screen OTP. Everything is idempotent and lives in the default tenant.
  *
  * Accounts (see docs/TEST_DATA.md):
- *   admin@demo.waitsmart.test                  clinic admin
- *   doctor.<clinic>@demo.waitsmart.test        one doctor login per clinic (linked to that clinic's first doctor)
- *   +91 90000 20001 ... 20008                  test patients (phone + OTP)
+ *   admin@<domain>                  clinic admin
+ *   doctor.<clinic key>@<domain>    one doctor login per clinic (linked to that clinic's first doctor)
+ *   8 test patients                 phone + OTP
+ * Clinics, patient names, account names/phones and the demo time zone come from the active dataset
+ * (SEED_DATASET, see datasets.ts); e.g. chennai uses @demo.waitsmart.test, us-uk uses @us-uk.demo.waitsmart.test.
  */
 
-export const TEST_ADMIN_EMAIL = "admin@demo.waitsmart.test";
+export const adminLoginEmail = (dataset: Dataset) => `admin@${dataset.testAccounts.emailDomain}`;
 
-/** clinic name -> email key for its doctor login */
-export const TEST_DOCTOR_CLINICS: Record<string, string> = {
-  "Apollo Clinic - Velachery": "apollo",
-  "Kauvery Hospital - Alwarpet": "kauvery",
-  "MIOT International - Manapakkam": "miot",
-  "Fortis Malar Hospital - Adyar": "fortis",
-  "Sri Ramachandra Medical Centre - Porur": "sriramachandra",
-};
+export const doctorLoginEmail = (dataset: Dataset, clinicKey: string) =>
+  `doctor.${clinicKey}@${dataset.testAccounts.emailDomain}`;
 
-export const TEST_PATIENTS = [
-  "Arjun Menon",
-  "Divya Krishnan",
-  "Karthik Raja",
-  "Meena Subramanian",
-  "Rahul Iyer",
-  "Lakshmi Narayanan",
-  "Sanjay Kumar",
-  "Ananya Reddy",
-].map((name, i) => ({ name, phone: `+91900002000${i + 1}` }));
+/** Test patients: names from the dataset, phones from its patientPhoneBase (phone login is India-format in the UI). */
+export const testPatients = (dataset: Dataset) =>
+  dataset.patients.map((name, i) => ({ name, phone: `${dataset.testAccounts.patientPhoneBase}${i + 1}` }));
 
 const SYMPTOMS = [
   "Fever and body ache for 2 days",
@@ -57,21 +47,22 @@ const SYMPTOMS = [
 
 // ---- working-day helpers (clinics run Mon-Sat; dates are in Indian Standard Time) ----
 
-function istDate(offsetDays: number): string {
-  const d = new Date(Date.now() + 5.5 * 3600 * 1000);
+/** Calendar date (YYYY-MM-DD) `offsetDays` from today in the dataset's time zone. */
+function localDate(offsetDays: number, utcOffsetMinutes: number): string {
+  const d = new Date(Date.now() + utcOffsetMinutes * 60 * 1000);
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
 }
 
-function isSunday(iso: string): boolean {
+function isOpenDay(iso: string, openDays: number[]): boolean {
   const [y, m, d] = iso.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d)).getUTCDay() === 0;
+  return openDays.includes(new Date(Date.UTC(y, m - 1, d)).getUTCDay());
 }
 
-/** First non-Sunday offset starting at `from`, moving by `step`. */
-function workdayOffset(from: number, step: 1 | -1): number {
+/** First offset starting at `from`, moving by `step`, that falls on a day the clinic is open. */
+function workdayOffset(from: number, step: 1 | -1, utcOffsetMinutes: number, openDays: number[]): number {
   let o = from;
-  while (isSunday(istDate(o))) o += step;
+  for (let i = 0; i < 7 && !isOpenDay(localDate(o, utcOffsetMinutes), openDays); i++) o += step;
   return o;
 }
 
@@ -164,7 +155,7 @@ async function bookDay(opts: {
   return created;
 }
 
-export async function seedTestData() {
+export async function seedTestData(datasetId?: DatasetId) {
   if (process.env.SEED_TEST_DATA !== "true") {
     logger.info("SEED_TEST_DATA is not 'true' — skipping test data");
     return;
@@ -176,9 +167,12 @@ export async function seedTestData() {
     return;
   }
 
+  const dataset = loadDataset(datasetId);
+  const patients = testPatients(dataset);
+
   // Patients: phone + OTP login, random unusable password.
   const patientRows = [];
-  for (const p of TEST_PATIENTS) {
+  for (const p of patients) {
     patientRows.push(
       await ensureUser({
         email: `${p.phone.replace("+", "")}@otp.waitsmart.app`,
@@ -197,9 +191,9 @@ export async function seedTestData() {
   if (staffPassword) {
     const hash = await hashPassword(staffPassword);
     await ensureUser({
-      email: TEST_ADMIN_EMAIL,
+      email: adminLoginEmail(dataset),
       name: "Demo Clinic Admin",
-      phone: "+919000010000",
+      phone: dataset.testAccounts.adminPhone,
       role: "admin",
       tenantId: tenant.id,
       passwordHash: hash,
@@ -207,15 +201,15 @@ export async function seedTestData() {
     });
 
     let n = 1;
-    for (const [clinicName, key] of Object.entries(TEST_DOCTOR_CLINICS)) {
+    for (const { key, name: clinicName } of dataset.clinics) {
       const clinic = await db.query.clinics.findFirst({ where: and(eq(clinics.tenantId, tenant.id), eq(clinics.name, clinicName)) });
       if (!clinic) continue;
       const doctor = await db.query.doctors.findFirst({ where: eq(doctors.clinicId, clinic.id), orderBy: asc(doctors.name) });
       if (!doctor) continue;
       const user = await ensureUser({
-        email: `doctor.${key}@demo.waitsmart.test`,
+        email: doctorLoginEmail(dataset, key),
         name: doctor.name,
-        phone: `+91900001000${n++}`,
+        phone: `${dataset.testAccounts.doctorPhoneBase}${n++}`,
         role: "doctor",
         tenantId: tenant.id,
         passwordHash: hash,
@@ -229,19 +223,24 @@ export async function seedTestData() {
   }
 
   // Demo bookings in different queue states for three clinics.
-  const yesterday = istDate(workdayOffset(-1, -1));
-  const todayOff = workdayOffset(0, 1);
-  const today = istDate(todayOff);
-  const tomorrow = istDate(workdayOffset(todayOff + 1, 1));
+  const tz = dataset.utcOffsetMinutes;
 
   let booked = 0;
   let offset = 0;
-  for (const clinicName of Object.keys(TEST_DOCTOR_CLINICS).slice(0, 3)) {
+  for (const clinicSeed of dataset.clinics.filter((c) => dataset.demoBookingClinics.includes(c.key))) {
+    const clinicName = clinicSeed.name;
     const clinic = await db.query.clinics.findFirst({ where: and(eq(clinics.tenantId, tenant.id), eq(clinics.name, clinicName)) });
     if (!clinic) continue;
     const doctor = await db.query.doctors.findFirst({ where: eq(doctors.clinicId, clinic.id), orderBy: asc(doctors.name) });
     if (!doctor) continue;
     const base = { tenantId: tenant.id, clinicId: clinic.id, doctorId: doctor.id, patientRows, patientOffset: offset++ };
+
+    // Dates follow this clinic's own open days (Mon-Sat in Chennai, Mon-Fri for the US/UK hospitals).
+    const open = clinicSeed.schedule.days;
+    const yesterday = localDate(workdayOffset(-1, -1, tz, open), tz);
+    const todayOff = workdayOffset(0, 1, tz, open);
+    const today = localDate(todayOff, tz);
+    const tomorrow = localDate(workdayOffset(todayOff + 1, 1, tz, open), tz);
 
     // History: finished / no-show / cancelled.
     const past = await bookDay({ ...base, date: yesterday, slotIndexes: [1, 3, 4, 7] });
@@ -265,7 +264,7 @@ export async function seedTestData() {
   }
 
   logger.info(
-    `Test data: ${patientRows.length} patients, ${staffPassword ? `admin + ${doctorLogins} doctor logins` : "no staff logins"}, ${booked} new demo bookings`,
+    `Test data (${dataset.id}): ${patientRows.length} patients, ${staffPassword ? `admin + ${doctorLogins} doctor logins` : "no staff logins"}, ${booked} new demo bookings`,
   );
 }
 

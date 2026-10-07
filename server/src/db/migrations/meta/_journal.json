@@ -22,6 +22,13 @@
       "when": 1722000000000,
       "tag": "0002_booking_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1723000000000,
+      "tag": "0003_doctor_gender",
+      "breakpoints": true
     }
   ]
 }

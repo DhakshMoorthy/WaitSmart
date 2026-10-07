@@ -1,0 +1,301 @@
+{
+  "_comment": "TEST / DEMO environment dataset. The hospitals, addresses and typical outpatient hours are real public information (checked 2026-10-07); individual clinics vary by department. The DOCTORS ARE FICTIONAL demo staff (names, specialties, experience and gender are invented) - no real clinician is represented. Slots are generic 30-minute slots inside the published outpatient window.",
+  "tenantName": "US & UK Demo Hospitals",
+  "tenantSubdomain": "demo",
+  "utcOffsetMinutes": 0,
+  "testAccounts": {
+    "emailDomain": "us-uk.demo.waitsmart.test",
+    "adminPhone": "+919000040000",
+    "doctorPhoneBase": "+91900004000",
+    "patientPhoneBase": "+91900003000"
+  },
+  "demoBookingClinics": [
+    "mayo",
+    "guys",
+    "mgh"
+  ],
+  "patients": [
+    "James Carter",
+    "Emily Richardson",
+    "Oliver Hughes",
+    "Sophia Martinez",
+    "Liam Patel",
+    "Charlotte Evans",
+    "Noah Johnson",
+    "Amelia Clarke"
+  ],
+  "clinics": [
+    {
+      "key": "mayo",
+      "name": "Mayo Clinic - Rochester",
+      "address": "200 First Street SW, Rochester, MN 55905, USA",
+      "hours": "Mon-Fri 6:30 AM - 6:30 PM",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "06:30",
+        "end": "18:30"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Emily Hartwell",
+          "specialization": "Internal Medicine",
+          "experienceYears": 14,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Marcus Reynolds",
+          "specialization": "Cardiology",
+          "experienceYears": 22,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Priya Raman",
+          "specialization": "Gastroenterology",
+          "experienceYears": 11,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Daniel Okafor",
+          "specialization": "Orthopedic Surgery",
+          "experienceYears": 17,
+          "gender": "male"
+        }
+      ]
+    },
+    {
+      "key": "cleveland",
+      "name": "Cleveland Clinic - Main Campus",
+      "address": "9500 Euclid Avenue, Cleveland, OH 44195, USA",
+      "hours": "Mon-Fri 7:00 AM - 4:30 PM",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "07:00",
+        "end": "16:30"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Sarah Lindqvist",
+          "specialization": "Cardiology",
+          "experienceYears": 19,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. James Whitaker",
+          "specialization": "Neurology",
+          "experienceYears": 25,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Aisha Rahman",
+          "specialization": "Endocrinology",
+          "experienceYears": 12,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Robert Castellano",
+          "specialization": "Urology",
+          "experienceYears": 16,
+          "gender": "male"
+        }
+      ]
+    },
+    {
+      "key": "mgh",
+      "name": "Massachusetts General Hospital",
+      "address": "55 Fruit Street, Boston, MA 02114, USA",
+      "hours": "Mon-Fri 8:00 AM - 5:00 PM (varies by clinic)",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "08:00",
+        "end": "17:00"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Olivia Brennan",
+          "specialization": "Oncology",
+          "experienceYears": 15,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Nathan Cho",
+          "specialization": "Pulmonology",
+          "experienceYears": 10,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Hannah Goldberg",
+          "specialization": "Dermatology",
+          "experienceYears": 9,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. William Foster",
+          "specialization": "General Surgery",
+          "experienceYears": 21,
+          "gender": "male"
+        }
+      ]
+    },
+    {
+      "key": "guys",
+      "name": "Guy's Hospital - London",
+      "address": "Great Maze Pond, London SE1 9RT, UK",
+      "hours": "Mon-Fri 9:00 AM - 5:00 PM",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "09:00",
+        "end": "17:00"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Charlotte Ashworth",
+          "specialization": "Haematology",
+          "experienceYears": 16,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Oliver Bennett",
+          "specialization": "Cardiology",
+          "experienceYears": 18,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Amara Nwosu",
+          "specialization": "Obstetrics & Gynaecology",
+          "experienceYears": 13,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Thomas Hargreaves",
+          "specialization": "Gastroenterology",
+          "experienceYears": 20,
+          "gender": "male"
+        }
+      ]
+    },
+    {
+      "key": "addenbrookes",
+      "name": "Addenbrooke's Hospital - Cambridge",
+      "address": "Hills Road, Cambridge CB2 0QQ, UK",
+      "hours": "Mon-Fri 9:00 AM - 5:00 PM (varies by clinic)",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "09:00",
+        "end": "17:00"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Eleanor Whitfield",
+          "specialization": "Neurology",
+          "experienceYears": 17,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Harry Pemberton",
+          "specialization": "Orthopaedic Surgery",
+          "experienceYears": 14,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Sophie Kendrick",
+          "specialization": "Paediatrics",
+          "experienceYears": 8,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Rajiv Malhotra",
+          "specialization": "Diabetes & Endocrinology",
+          "experienceYears": 12,
+          "gender": "male"
+        }
+      ]
+    },
+    {
+      "key": "gosh",
+      "name": "Great Ormond Street Hospital - London",
+      "address": "Great Ormond Street, London WC1N 3JH, UK",
+      "hours": "Mon-Fri 8:00 AM - 8:00 PM, Sat 9:00 AM - 1:00 PM (varies by clinic)",
+      "schedule": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "08:00",
+        "end": "20:00"
+      },
+      "doctorsAreFictional": true,
+      "doctors": [
+        {
+          "name": "Dr. Isabelle Fontaine",
+          "specialization": "Paediatric Cardiology",
+          "experienceYears": 15,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Jonathan Ellis",
+          "specialization": "Paediatric Neurology",
+          "experienceYears": 19,
+          "gender": "male"
+        },
+        {
+          "name": "Dr. Mei Lin Tan",
+          "specialization": "Paediatric Dermatology",
+          "experienceYears": 10,
+          "gender": "female"
+        },
+        {
+          "name": "Dr. Samuel Adeyemi",
+          "specialization": "Paediatric Surgery",
+          "experienceYears": 22,
+          "gender": "male"
+        }
+      ]
+    }
+  ],
+  "sources": [
+    "https://www.mayoclinic.org/patient-visitor-guide/minnesota",
+    "https://providers.clevelandclinic.org/location/cleveland-clinic-main-campus/loc0000241179",
+    "https://www.massgeneralbrigham.org/en/locations/boston-ma/massachusetts-general-hospital-loc0000246778",
+    "https://www.guysandstthomas.nhs.uk/our-services",
+    "https://www.nhs.uk/services/clinic/addenbrookes/NV504/contact-details",
+    "https://www.gosh.nhs.uk"
+  ]
+}

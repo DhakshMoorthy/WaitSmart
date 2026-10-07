@@ -4,11 +4,15 @@ import { api, createTestTenant } from "./helpers.js";
 import { db } from "../src/config/db.js";
 import { env } from "../src/config/env.js";
 import { appointments, clinics, doctors, slots, tenants, users } from "../src/db/schema/index.js";
-import { seedChennaiClinics } from "../src/db/seeds/chennai-clinics.js";
-import { cleanupLegacySampleData, DEMO_TENANT_NAME } from "../src/db/seeds/legacy-cleanup.js";
-import { seedTestData, TEST_ADMIN_EMAIL, TEST_DOCTOR_CLINICS, TEST_PATIENTS } from "../src/db/seeds/test-data.js";
+import { seedDemoClinics } from "../src/db/seeds/demo-clinics.js";
+import { loadDataset } from "../src/db/seeds/datasets.js";
+import { cleanupLegacySampleData } from "../src/db/seeds/legacy-cleanup.js";
+import { seedTestData, testPatients, adminLoginEmail } from "../src/db/seeds/test-data.js";
 
 const PASSWORD = "demo-Password-123!";
+const dataset = loadDataset("chennai");
+const TEST_PATIENTS = testPatients(dataset);
+const TEST_ADMIN_EMAIL = adminLoginEmail(dataset);
 const count = async (rows: Promise<unknown[]>) => (await rows).length;
 
 describe("Legacy cleanup + test data seed", () => {
@@ -17,7 +21,7 @@ describe("Legacy cleanup + test data seed", () => {
   beforeAll(async () => {
     const tenant = await createTestTenant({ slug: env.DEFAULT_TENANT_SLUG, name: "Apollo Clinic", subdomain: `td-${Date.now()}` });
     tenantId = tenant.id;
-    await seedChennaiClinics();
+    await seedDemoClinics("chennai");
 
     // The fake data from the ORIGINAL seed, as it exists in the live database.
     const [fake] = await db
@@ -71,7 +75,7 @@ describe("Legacy cleanup + test data seed", () => {
     expect(await count(db.select().from(users).where(eq(users.email, "owner@example.com")))).toBe(1); // duplicates collapsed
 
     const t = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
-    expect(t?.name).toBe(DEMO_TENANT_NAME);
+    expect(t?.name).toBe("Chennai Demo Clinics");
   });
 
   it("is safe to run the cleanup again", async () => {
@@ -107,7 +111,7 @@ describe("Legacy cleanup + test data seed", () => {
     expect(admin?.role).toBe("admin");
 
     const docLogins = await db.select().from(users).where(and(eq(users.role, "doctor"), eq(users.tenantId, tenantId)));
-    expect(docLogins).toHaveLength(Object.keys(TEST_DOCTOR_CLINICS).length);
+    expect(docLogins).toHaveLength(dataset.clinics.length);
     const linked = await db.select().from(doctors).where(inArray(doctors.userId, docLogins.map((u) => u.id)));
     expect(linked).toHaveLength(docLogins.length);
   });

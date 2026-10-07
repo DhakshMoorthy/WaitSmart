@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "../../config/db.js";
-import { redis } from "../../config/redis.js";
+import { redis, redisKey } from "../../config/redis.js";
 import { users } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../utils/jwt.js";
@@ -13,7 +13,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../uti
  *  - logout deletes the token
  *  - role / tenant are re-read from the database on every refresh, so demotions take effect
  */
-const key = (userId: string, jti: string) => `rt:${userId}:${jti}`;
+const key = (userId: string, jti: string) => redisKey(`rt:${userId}:${jti}`);
 
 export async function issueTokens(user: typeof users.$inferSelect) {
   const payload = {
@@ -34,7 +34,7 @@ export async function issueTokens(user: typeof users.$inferSelect) {
 }
 
 async function revokeAllForUser(userId: string) {
-  for await (const k of redis.scanIterator({ MATCH: `rt:${userId}:*`, COUNT: 100 })) {
+  for await (const k of redis.scanIterator({ MATCH: redisKey(`rt:${userId}:*`), COUNT: 100 })) {
     await redis.del(k);
   }
 }

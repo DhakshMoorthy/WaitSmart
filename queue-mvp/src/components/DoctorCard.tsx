@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import type { Doctor } from '../lib/types';
+import DoctorAvatar from './DoctorAvatar';
 
 interface Props {
   doctor: Doctor;
@@ -15,11 +16,7 @@ export default function DoctorCard({ doctor, nowServing, waiting, clinicId }: Pr
       to={`/book/${doctor.id}?clinic=${clinicId}`}
       className="group flex gap-3 rounded-2xl bg-white p-3 card-shadow transition hover:shadow-lg"
     >
-      <img
-        src={doctor.photo_url}
-        alt={doctor.name}
-        className="h-20 w-20 shrink-0 rounded-xl object-cover"
-      />
+      <DoctorAvatar gender={doctor.gender} name={doctor.name} className="h-20 w-20 shrink-0 rounded-xl" />
       <div className="min-w-0 flex-1">
         <h3 className="font-semibold text-slate-900">{doctor.name}</h3>
         <p className="text-sm text-slate-500">{doctor.specialization}</p>
