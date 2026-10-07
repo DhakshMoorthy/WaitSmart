@@ -42,19 +42,14 @@ async function getOrCreateQueueState(tenantId: string, doctorId: string, date: s
 }
 
 async function appointmentsForDate(tenantId: string, doctorId: string, date: string) {
-  const allAppts = await db.query.appointments.findMany({
-    where: and(eq(appointments.doctorId, doctorId), eq(appointments.tenantId, tenantId)),
-    orderBy: appointments.tokenNumber,
-  });
-
-  const todayAppts = [];
-  for (const appt of allAppts) {
-    const slot = await db.query.slots.findFirst({
-      where: and(eq(slots.id, appt.slotId), eq(slots.date, date)),
-    });
-    if (slot) todayAppts.push(appt);
-  }
-  return todayAppts;
+  // Served in slot-time order (what patients were told), token number only breaks ties.
+  const rows = await db
+    .select({ appointment: appointments })
+    .from(appointments)
+    .innerJoin(slots, and(eq(slots.id, appointments.slotId), eq(slots.date, date)))
+    .where(and(eq(appointments.doctorId, doctorId), eq(appointments.tenantId, tenantId)))
+    .orderBy(slots.slotIndex, appointments.tokenNumber);
+  return rows.map((r) => r.appointment);
 }
 
 async function findInCabin(tenantId: string, doctorId: string, date: string) {

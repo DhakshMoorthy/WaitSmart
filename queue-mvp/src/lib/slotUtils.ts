@@ -47,6 +47,14 @@ function resolveTime24(slotTime: string, slotTime24h?: string): string {
   return '09:00';
 }
 
+/** Queue order: by appointment time, token number only breaks ties (matches the server). */
+export function compareQueueOrder(a: Appointment, b: Appointment): number {
+  const ta = a.slot_time_24h || '';
+  const tb = b.slot_time_24h || '';
+  if (ta !== tb) return ta < tb ? -1 : 1;
+  return a.token - b.token;
+}
+
 export function getSlotDateTime(isoDate: string, slotTime: string, slotTime24h?: string): Date {
   const time24 = resolveTime24(slotTime, slotTime24h);
   const [h, m] = time24.split(':').map(Number);
@@ -91,9 +99,15 @@ export function estimateWaitMinutes(
   }
 
   const todayIso = formatDateISO(new Date());
+  const myTime = resolveTime24(slotTime ?? '', slotTime24h);
   const queueWait =
-    appointments.filter((a) => a._rawStatus === 'waiting' && a.token < patientToken)
-      .length * slotDurationMinutes;
+    appointments.filter(
+      (a) =>
+        a._rawStatus === 'waiting' &&
+        a.token !== patientToken &&
+        (a.slot_time_24h || '') !== '' &&
+        ((a.slot_time_24h < myTime) || (a.slot_time_24h === myTime && a.token < patientToken)),
+    ).length * slotDurationMinutes;
 
   if (
     appointmentDate === todayIso &&

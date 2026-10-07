@@ -202,7 +202,7 @@ export function getQueueStatsFromAppointments(queue: { current_token?: number },
   const active = appointments.filter((a) => a.status !== 'cancelled');
   const inCabin = active.find((a) => a._rawStatus === 'in-cabin');
   const waiting = active.filter(
-    (a) => a._rawStatus === 'waiting' && (current === 0 || a.token > current),
+    (a) => a._rawStatus === 'waiting' && (current === 0 || a.token !== current),
   );
 
   const sessionEnded =

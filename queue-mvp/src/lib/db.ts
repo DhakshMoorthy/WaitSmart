@@ -1,4 +1,5 @@
 import { get, post, patch, del, uploadFile, apiBaseUrl, wakeApi } from './api';
+import { compareQueueOrder } from './slotUtils';
 import { getAuth, hydrate, setUser } from './auth';
 import {
   connectSocket,
@@ -164,7 +165,7 @@ export async function getDoctorDaySlots(doctorId: string, date: string) {
 
 export async function getAppointments(doctorId: string, date: string): Promise<Appointment[]> {
   const { appointments } = await fetchDoctorDay(doctorId, date);
-  return appointments.sort((a, b) => a.token - b.token);
+  return appointments.sort(compareQueueOrder);
 }
 
 export async function getAppointment(appointmentId: string): Promise<Appointment | null> {
@@ -536,7 +537,7 @@ export function subscribeAppointments(
   callback: (appointments: Appointment[]) => void,
 ) {
   const unsub = subscribeDoctorDayInternal(doctorId, date, ({ appointments }) => {
-    callback(appointments.sort((a, b) => a.token - b.token));
+    callback(appointments.sort(compareQueueOrder));
   });
   return unsub;
 }
