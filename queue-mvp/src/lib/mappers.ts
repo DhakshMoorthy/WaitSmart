@@ -40,7 +40,7 @@ export function mapClinic(clinic: {
     name,
     branch,
     address: clinic.address || '',
-    hours: clinic.hours || '9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM',
+    hours: clinic.hours || '',
     image_url: clinic.image_url || CLINIC_IMG,
   };
 }
