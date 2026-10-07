@@ -13,6 +13,7 @@ import AdminPage from './pages/AdminPage';
 import LoginPage from './pages/LoginPage';
 import VerifyPage from './pages/VerifyPage';
 import ProfilePage from './pages/ProfilePage';
+import FavoritesPage from './pages/FavoritesPage';
 import LoadingScreen from './components/LoadingScreen';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,6 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin': 'Admin',
   '/track': 'My appointments',
   '/profile': 'My profile',
+  '/favorites': 'Favorite doctors',
 };
 
 /** One browser-tab title per page (it used to be the same on every screen). */
@@ -161,6 +163,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/favorites"
+            element={
+              <ProtectedRoute>
+                <FavoritesPage />
               </ProtectedRoute>
             }
           />
