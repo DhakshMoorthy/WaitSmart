@@ -12,7 +12,7 @@ import { KNOWN_DEV_PASSWORDS } from "./known-passwords.js";
 /**
  * Development/test data for exercising every part of the app. Opt-in: SEED_TEST_DATA=true.
  *
- * Staff logins (email + password) additionally need TEST_ACCOUNTS_PASSWORD (12+ chars, set in the
+ * Staff logins (email + password) additionally need TEST_ACCOUNTS_PASSWORD (8+ chars, set in the
  * environment, never committed). Patients have no password: they sign in with their phone number
  * and the on-screen OTP. Everything is idempotent and lives in the default tenant.
  *
@@ -108,11 +108,16 @@ async function ensureUser(input: {
   return created;
 }
 
+/** Test logins hold only demo data, so the bar is lower than for the superadmin (12+). */
+export const MIN_TEST_PASSWORD_LENGTH = 8;
+
 function validStaffPassword(): string | null {
   const pw = process.env.TEST_ACCOUNTS_PASSWORD;
   if (!pw) return null;
-  if (pw.length < 12 || KNOWN_DEV_PASSWORDS.includes(pw)) {
-    logger.warn("TEST_ACCOUNTS_PASSWORD must be 12+ characters and not a published password — skipping staff test accounts");
+  if (pw.length < MIN_TEST_PASSWORD_LENGTH || KNOWN_DEV_PASSWORDS.includes(pw)) {
+    logger.warn(
+      `TEST_ACCOUNTS_PASSWORD must be ${MIN_TEST_PASSWORD_LENGTH}+ characters and not a published password - skipping staff test accounts (admin/doctor logins NOT created)`,
+    );
     return null;
   }
   return pw;
