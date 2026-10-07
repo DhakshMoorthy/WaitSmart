@@ -17,6 +17,17 @@ Everything is **idempotent** (re-running adds nothing) and lives in the default 
 | `SEED_CHENNAI_CLINICS=false` | Skips loading the dataset's clinics. |
 | `EXPOSE_DEV_OTP=true` | Shows the OTP on screen, so patients can sign in with just a phone number. |
 
+## Where to sign in
+
+| Who | Page | Notes |
+|---|---|---|
+| Patient | `/login` | phone number + OTP |
+| Doctor | `/doctor` | email + password; shows **only that doctor's** queue (no doctor picker, no "Reset queue") |
+| Clinic admin / superadmin | `/admin` | every doctor's queue, doctor picker, "Reset queue" |
+
+Accounts are told apart by their **role**. A doctor who opens `/admin` is sent to `/doctor`, and an admin who opens `/doctor` is sent to `/admin`.
+The API enforces the same rule on every queue action, whatever the UI shows.
+
 ## Accounts
 
 **Staff** (email + password = `TEST_ACCOUNTS_PASSWORD`) sign in on the app's **Admin** page.

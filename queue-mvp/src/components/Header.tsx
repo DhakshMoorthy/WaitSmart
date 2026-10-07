@@ -4,8 +4,9 @@ import { APP_NAME } from '../lib/constants';
 import { useAuth, useIsAdmin } from '../hooks/useAuth';
 
 export default function Header() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const isStaff = useIsAdmin();
+  const isDoctor = user?.role === 'doctor';
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
@@ -43,11 +44,11 @@ export default function Header() {
           )}
           {isStaff && (
             <Link
-              to="/admin"
+              to={isDoctor ? '/doctor' : '/admin'}
               className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-primary/30 hover:bg-primary-light hover:text-primary"
             >
-              <Shield className="h-3.5 w-3.5" />
-              Admin
+              {isDoctor ? <Stethoscope className="h-3.5 w-3.5" /> : <Shield className="h-3.5 w-3.5" />}
+              {isDoctor ? 'My queue' : 'Admin'}
             </Link>
           )}
         </div>
