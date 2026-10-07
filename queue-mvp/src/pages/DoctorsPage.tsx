@@ -12,6 +12,7 @@ import {
 import { formatDateISO } from '../lib/slotUtils';
 import type { Clinic, Doctor } from '../lib/types';
 import DoctorCard from '../components/DoctorCard';
+import ClinicBackdrop from '../components/ClinicBackdrop';
 
 export default function DoctorsPage() {
   const { clinicId } = useParams<{ clinicId: string }>();
@@ -90,14 +91,14 @@ export default function DoctorsPage() {
 
       <div className="overflow-hidden rounded-2xl card-shadow">
         <div className="relative h-40">
-          <img
-            src={clinic.image_url}
-            alt={clinic.name}
-            className="h-full w-full object-cover"
-          />
+          {clinic.image_url ? (
+            <img src={clinic.image_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <ClinicBackdrop />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-4 left-4">
-            <h1 className="text-xl font-bold text-white">{clinic.branch}</h1>
+            <h1 className="text-xl font-bold text-white">{clinic.name}</h1>
             <p className="text-sm text-white/80">{clinic.address}</p>
           </div>
         </div>

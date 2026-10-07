@@ -3,6 +3,7 @@ import {
   advanceQueue,
   endSession,
   getBookingCountsByDate,
+  getClinics,
   getDoctors,
   getQueueStats,
   markNoShow,
@@ -15,7 +16,7 @@ import {
 } from '../lib/db';
 import { post, logoutAndRevoke } from '../lib/api';
 import { logout, setTokens, setUser } from '../lib/auth';
-import { useIsAdmin } from '../hooks/useAuth';
+import { useAuth, useIsAdmin } from '../hooks/useAuth';
 import {
   formatDisplayDate,
   getCalendarDays,
@@ -51,6 +52,7 @@ const STATUS_OPTIONS: AppointmentStatus[] = [
 
 export default function AdminPage() {
   const isAdmin = useIsAdmin();
+  const { user } = useAuth();
   const [authenticated, setAuthenticated] = useState(isAdmin);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,6 +61,7 @@ export default function AdminPage() {
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [doctorsError, setDoctorsError] = useState('');
+  const [clinicNames, setClinicNames] = useState<Record<string, string>>({});
   const [selectedDoctor, setSelectedDoctor] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [queue, setQueue] = useState<Queue | null>(null);
@@ -89,20 +92,31 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authenticated) return;
-    getDoctors()
-      .then((docs) => {
+    // Doctors are loaded once per sign-in (it used to refetch on every date/doctor change).
+    const onlyMine = user?.role === 'doctor' && user.id ? { onlyUserId: user.id } : {};
+    Promise.all([getDoctors(undefined, onlyMine), getClinics().catch(() => [])])
+      .then(([docs, clinics]) => {
+        const names = Object.fromEntries(clinics.map((c: { id: string; name: string }) => [c.id, c.name]));
+        // Group by clinic so same-sounding doctors at different clinics can be told apart.
+        const sorted = [...docs].sort(
+          (a, b) =>
+            (names[a.clinic_id] ?? '').localeCompare(names[b.clinic_id] ?? '') ||
+            a.name.localeCompare(b.name),
+        );
         setDoctorsError('');
-        setDoctors(docs);
-        if (docs.length > 0 && !selectedDoctor) setSelectedDoctor(docs[0].id);
+        setClinicNames(names);
+        setDoctors(sorted);
+        setSelectedDoctor((cur) => cur || sorted[0]?.id || '');
       })
       .catch((err) => {
         // Never fail silently: an empty dropdown with "0 booked" looks like missing bookings.
         setDoctorsError(err instanceof Error ? err.message : 'Could not load doctors.');
       });
-    if (!selectedDate && todayIso) {
-      setSelectedDate(todayIso);
-    }
-  }, [authenticated, todayIso, selectedDate, selectedDoctor]);
+  }, [authenticated, user?.id, user?.role]);
+
+  useEffect(() => {
+    if (authenticated && !selectedDate && todayIso) setSelectedDate(todayIso);
+  }, [authenticated, selectedDate, todayIso]);
 
   useEffect(() => {
     if (!selectedDoctor) return;
@@ -355,7 +369,7 @@ export default function AdminPage() {
           >
             {doctors.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}
+                {clinicNames[d.clinic_id] ? `${d.name} — ${clinicNames[d.clinic_id]}` : d.name}
               </option>
             ))}
           </select>
@@ -574,7 +588,7 @@ export default function AdminPage() {
                       handleStatusChange(apt.id, e.target.value as AppointmentStatus)
                     }
                     disabled={actionLoading || isHistoryView}
-                    className={`shrink-0 rounded-full border-0 px-2 py-0.5 text-[10px] font-semibold outline-none ${statusColor(apt.status)}`}
+                    className={`shrink-0 rounded-full border-0 px-3 py-1.5 text-xs font-semibold outline-none ${statusColor(apt.status)}`}
                   >
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
@@ -593,7 +607,7 @@ export default function AdminPage() {
                       setEditNotes(apt.doctor_notes ?? '');
                     }
                   }}
-                  className="mt-2 text-[10px] font-semibold text-primary hover:underline"
+                  className="mt-1 py-2 text-xs font-semibold text-primary hover:underline"
                 >
                   {expandedNotesId === apt.id
                     ? 'Cancel'
@@ -614,7 +628,7 @@ export default function AdminPage() {
                       type="button"
                       disabled={notesSaving}
                       onClick={() => saveHistoryNotes(apt.id)}
-                      className="mt-1 text-[10px] font-semibold text-primary disabled:opacity-50"
+                      className="mt-1 py-2 text-xs font-semibold text-primary disabled:opacity-50"
                     >
                       {notesSaving ? 'Saving…' : 'Save to history'}
                     </button>

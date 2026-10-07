@@ -5,7 +5,6 @@ import { db } from "../config/db.js";
 import { doctors } from "../db/schema/index.js";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STAFF_ROLES = new Set(["admin", "doctor", "superadmin"]);
 
 /** Room everyone in the tenant can watch: token numbers + statuses only. */
 export const publicQueueRoom = (doctorId: string) => `queue:${doctorId}`;
@@ -26,7 +25,13 @@ export function registerQueueHandlers(_io: Server, socket: Socket) {
     });
     if (!doctor) return;
 
-    socket.join(STAFF_ROLES.has(user.role) ? staffQueueRoom(doctorId) : publicQueueRoom(doctorId));
+    // Full payload (names, notes, files) only for admins, or for the doctor this queue belongs to.
+    // Other doctors and patients get the public room (token numbers and statuses only).
+    const isPrivileged =
+      user.role === "admin" ||
+      user.role === "superadmin" ||
+      (user.role === "doctor" && doctor.userId !== null && doctor.userId === user.userId);
+    socket.join(isPrivileged ? staffQueueRoom(doctorId) : publicQueueRoom(doctorId));
   });
 
   socket.on(SOCKET_EVENTS.QUEUE_UNSUBSCRIBE, (doctorId: unknown) => {

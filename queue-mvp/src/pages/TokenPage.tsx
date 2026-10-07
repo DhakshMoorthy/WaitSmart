@@ -44,18 +44,33 @@ export default function TokenPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState('');
+  // 'loading' until we know; 'notfound' = not in this account's history (someone else's, deleted, bad link).
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'notfound' | 'error'>('loading');
   useMinuteTick();
 
   useEffect(() => {
     if (!appointmentId) return;
-    getAppointment(appointmentId).then(async (apt) => {
-      setAppointment(apt);
-      if (apt) {
+    let cancelled = false;
+    getAppointment(appointmentId)
+      .then(async (apt) => {
+        if (cancelled) return;
+        setAppointment(apt);
+        if (!apt) {
+          setLoadState('notfound');
+          return;
+        }
         const doc = await getDoctor(apt.doctor_id);
+        if (cancelled) return;
         setDoctor(doc);
+        setLoadState(doc ? 'ready' : 'error');
         getClinic(apt.clinic_id).then((c) => setClinicHours(c?.hours ?? '')).catch(() => {});
-      }
-    });
+      })
+      .catch(() => {
+        if (!cancelled) setLoadState('error');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [appointmentId, refreshKey]);
 
   useEffect(() => {
@@ -79,6 +94,38 @@ export default function TokenPage() {
       unsubApts();
     };
   }, [appointment?.doctor_id, appointment?.date, appointment?.id]);
+
+  if (loadState === 'notfound' || loadState === 'error') {
+    return (
+      <div className="space-y-4 py-12 text-center">
+        <h1 className="text-lg font-semibold text-slate-900">
+          {loadState === 'notfound' ? 'Appointment not found' : "Couldn't load this appointment"}
+        </h1>
+        <p className="text-sm text-slate-500">
+          {loadState === 'notfound'
+            ? 'This booking is not in your account. Check the link, or sign in with the mobile number used to book.'
+            : 'Please check your connection and try again.'}
+        </p>
+        <div className="flex justify-center gap-3">
+          {loadState === 'error' && (
+            <button
+              type="button"
+              onClick={() => {
+                setLoadState('loading');
+                setRefreshKey((k) => k + 1);
+              }}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+            >
+              Try again
+            </button>
+          )}
+          <Link to="/track" className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white">
+            My appointments
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!appointment || !doctor) {
     return (
@@ -123,9 +170,11 @@ export default function TokenPage() {
     appointment.slot_time,
     appointment.slot_time_24h,
   );
-  const waitSubLabel = slotStillFuture
-    ? 'Time left until your slot'
-    : 'Est. queue wait';
+  const waitSubLabel = isDone || isCancelled
+    ? 'Status'
+    : slotStillFuture
+      ? 'Time left until your slot'
+      : 'Est. queue wait';
 
   const handleOpenAttachment = async () => {
     if (!appointment?.attachment_data) return;
@@ -173,20 +222,34 @@ export default function TokenPage() {
         </div>
       )}
 
-      <div className="rounded-2xl bg-primary px-4 py-3 text-center text-white card-shadow">
-        <p className="text-sm text-blue-100">
-          Your appointment is at <strong>{appointment.slot_time}</strong>
-        </p>
-      </div>
+      {isCancelled ? (
+        <div className="rounded-2xl bg-red-50 px-4 py-3 text-center text-red-700 card-shadow">
+          <p className="text-sm font-semibold">This appointment was cancelled</p>
+          <p className="text-xs text-red-500">
+            Was {appointment.slot_time}, {formatDisplayDate(appointment.date)}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-primary px-4 py-3 text-center text-white card-shadow">
+          <p className="text-sm text-blue-100">
+            Your appointment is at <strong>{appointment.slot_time}</strong>
+          </p>
+        </div>
+      )}
 
       <div className="rounded-2xl bg-white p-5 text-center card-shadow">
         <div className="flex items-center justify-center gap-2">
           <p className="text-4xl font-bold text-slate-900">{appointment.slot_time}</p>
-          <LiveBadge />
+          {!isCancelled && <LiveBadge />}
         </div>
         <p className="mt-2 text-sm text-slate-500">
-          {formatDisplayDate(appointment.date)} • Slot #{appointment.slot_index} of{' '}
-          {appointment.total_slots}
+          {formatDisplayDate(appointment.date)}
+          {!isCancelled && appointment.total_slots > 0 && (
+            <>
+              {' '}
+              • Slot #{appointment.slot_index} of {appointment.total_slots}
+            </>
+          )}
         </p>
         <div className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-600">
           <User className="h-4 w-4" />

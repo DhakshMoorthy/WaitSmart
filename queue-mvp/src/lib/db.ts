@@ -111,11 +111,15 @@ export async function getClinic(clinicId: string) {
   return clinics.find((c) => c.id === clinicId) || null;
 }
 
-export async function getDoctors(clinicId?: string) {
+export async function getDoctors(clinicId?: string, opts: { onlyUserId?: string } = {}) {
   const res = clinicId
     ? await get('/doctors', { clinicId })
     : await get('/doctors');
-  const doctors = res.data || [];
+  let doctors = res.data || [];
+  // A doctor login manages only its own queue: keep just the doctor record linked to that user.
+  if (opts.onlyUserId) {
+    doctors = doctors.filter((d: { userId?: string | null }) => d.userId === opts.onlyUserId);
+  }
   return Promise.all(
     doctors.map(async (d: Parameters<typeof mapDoctor>[0]) =>
       mapDoctor(d, await getDoctorSlotDuration(d.id)),

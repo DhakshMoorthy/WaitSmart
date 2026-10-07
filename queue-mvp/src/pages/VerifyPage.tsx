@@ -112,6 +112,7 @@ export default function VerifyPage() {
           {otp.map((digit, idx) => (
             <input
               key={idx}
+              aria-label={`OTP digit ${idx + 1} of 6`}
               ref={(el) => { inputsRef.current[idx] = el; }}
               type="text"
               inputMode="numeric"

@@ -41,7 +41,7 @@ export function mapClinic(clinic: {
     branch,
     address: clinic.address || '',
     hours: clinic.hours || '',
-    image_url: clinic.image_url || CLINIC_IMG,
+    image_url: clinic.image_url || '',
   };
 }
 
