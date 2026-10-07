@@ -12,7 +12,7 @@ Everything is **idempotent** (re-running adds nothing) and lives in the default 
 | Env var | Effect |
 |---|---|
 | `SEED_TEST_DATA=true` | Creates test patients and demo bookings. Already `true` in `render.yaml`. Default off locally. |
-| `TEST_ACCOUNTS_PASSWORD` | 12+ characters, not a published password. Also creates the clinic admin and doctor logins. Set it in the Render dashboard (never commit it). Changing it updates the passwords on the next deploy. |
+| `TEST_ACCOUNTS_PASSWORD` | 8+ characters, not a published password (`Admin@1234`, `Doctor@1234`, `Patient@1234`). If it is shorter, the admin/doctor logins are silently NOT created (a warning is logged). Also creates the clinic admin and doctor logins. Set it in the Render dashboard (never commit it). Changing it updates the passwords on the next deploy. |
 | `SEED_CHENNAI_CLINICS=false` | Skips the 5 real Chennai clinics. |
 | `EXPOSE_DEV_OTP=true` | Shows the OTP on screen, so patients can sign in with just a phone number. |
 

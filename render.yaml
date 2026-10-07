@@ -52,7 +52,7 @@ services:
       - key: EXPOSE_DEV_OTP
         value: "true"
       # DEVELOPMENT: load demo bookings + test accounts on every deploy (idempotent). See docs/TEST_DATA.md.
-      # Set TEST_ACCOUNTS_PASSWORD (12+ chars) in the Render dashboard to also create the admin/doctor logins.
+      # Set TEST_ACCOUNTS_PASSWORD (8+ chars) in the Render dashboard to also create the admin/doctor logins.
       - key: SEED_TEST_DATA
         value: "true"
       - key: TEST_ACCOUNTS_PASSWORD

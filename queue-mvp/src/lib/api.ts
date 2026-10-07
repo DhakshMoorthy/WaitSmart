@@ -43,7 +43,9 @@ export async function api(path: string, options: ApiOptions = {}) {
 
   const res = await fetch(`${BASE_URL}${path}`, config);
 
-  if (res.status === 401 && !options._retry) {
+  // A 401 from the /auth/* endpoints themselves (wrong password, bad OTP, ...) is a real answer for the
+  // user, not an expired access token: refreshing there only hides the message behind "No refresh token".
+  if (res.status === 401 && !options._retry && !path.startsWith('/auth/')) {
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         failedQueue.push({

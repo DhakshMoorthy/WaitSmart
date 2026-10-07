@@ -87,6 +87,18 @@ describe("Legacy cleanup + test data seed", () => {
     expect(await count(db.select().from(users).where(inArray(users.phone, TEST_PATIENTS.map((p) => p.phone))))).toBe(TEST_PATIENTS.length);
   });
 
+  it("refuses a password shorter than the minimum, accepts 10 characters", async () => {
+    process.env.TEST_ACCOUNTS_PASSWORD = "short12"; // 7 chars
+    await seedTestData();
+    expect(await count(db.select().from(users).where(eq(users.email, TEST_ADMIN_EMAIL)))).toBe(0);
+
+    process.env.TEST_ACCOUNTS_PASSWORD = "Demo#1234x"; // 10 chars: the reported case
+    await seedTestData();
+    const login = await api.post("/auth/login").send({ email: TEST_ADMIN_EMAIL, password: "Demo#1234x" });
+    expect(login.status).toBe(200);
+    expect(login.body.user.role).toBe("admin");
+  });
+
   it("creates the admin and one doctor login per clinic", async () => {
     process.env.TEST_ACCOUNTS_PASSWORD = PASSWORD;
     await seedTestData();
