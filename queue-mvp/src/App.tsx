@@ -10,6 +10,7 @@ import BookPage from './pages/BookPage';
 import TokenPage from './pages/TokenPage';
 import TrackPage from './pages/TrackPage';
 import AdminPage from './pages/AdminPage';
+import DoctorPage from './pages/DoctorPage';
 import LoginPage from './pages/LoginPage';
 import VerifyPage from './pages/VerifyPage';
 import ProfilePage from './pages/ProfilePage';
@@ -35,7 +36,7 @@ function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) return <LoadingScreen />;
   if (isAuthenticated) {
     if (user?.role === 'doctor') {
-      return <Navigate to="/admin" replace />;
+      return <Navigate to="/doctor" replace />;
     }
     const params = new URLSearchParams(location.search);
     const next = params.get('next') || '/';
@@ -49,6 +50,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/login': 'Sign in',
   '/verify': 'Verify OTP',
   '/admin': 'Admin',
+  '/doctor': 'My queue',
   '/track': 'My appointments',
   '/profile': 'My profile',
   '/favorites': 'Favorite doctors',
@@ -118,6 +120,7 @@ export default function App() {
             }
           />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/doctor" element={<DoctorPage />} />
           <Route
             path="/"
             element={
