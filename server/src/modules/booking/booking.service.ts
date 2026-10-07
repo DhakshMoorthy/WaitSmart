@@ -19,8 +19,16 @@ export interface Actor {
   role: string;
 }
 
-const STAFF_ROLES = new Set(["admin", "doctor", "superadmin"]);
-const isStaff = (actor: Actor | null) => !!actor && STAFF_ROLES.has(actor.role);
+/**
+ * Can this actor see / change the patients of `doctor`?
+ *  - admin and superadmin: every doctor in the clinic group
+ *  - doctor: only their OWN patients (a doctor must not read other doctors' patient lists)
+ */
+function staffManagesDoctor(actor: Actor | null, doctor: { userId: string | null }): boolean {
+  if (!actor) return false;
+  if (actor.role === "admin" || actor.role === "superadmin") return true;
+  return actor.role === "doctor" && doctor.userId !== null && doctor.userId === actor.userId;
+}
 
 export async function getAvailability(
   tenantId: string,
@@ -87,7 +95,7 @@ export async function getAvailability(
 
       // Staff and the booking's owner see everything; everyone else only sees
       // that the token exists (no names, phones, symptoms, notes or user ids).
-      const canSeeDetails = isStaff(actor) || appointment.patientUserId === actor?.userId;
+      const canSeeDetails = staffManagesDoctor(actor, doctor) || appointment.patientUserId === actor?.userId;
       if (canSeeDetails) return { ...slot, appointment };
       return {
         ...slot,
@@ -263,10 +271,18 @@ export async function createBooking(
   return appointment;
 }
 
-/** Patients may only touch their own bookings; staff may touch any in their tenant. */
-function assertOwnsAppointment(ownerUserId: string | null, actor: Actor) {
-  if (isStaff(actor)) return;
-  if (ownerUserId !== actor.userId) {
+/** Patients may only touch their own bookings; admins any in their tenant; doctors only their own doctor's. */
+async function assertOwnsAppointment(
+  tx: Tx,
+  tenantId: string,
+  appointment: { patientUserId: string | null; doctorId: string },
+  actor: Actor,
+) {
+  if (appointment.patientUserId === actor.userId) return;
+  const doctor = await tx.query.doctors.findFirst({
+    where: and(eq(doctors.id, appointment.doctorId), eq(doctors.tenantId, tenantId)),
+  });
+  if (!doctor || !staffManagesDoctor(actor, doctor)) {
     // 404, not 403: don't confirm that someone else's appointment id exists.
     throw new AppError(404, "Appointment not found", "NOT_FOUND");
   }
@@ -279,7 +295,7 @@ async function cancelInTx(tx: Tx, tenantId: string, appointmentId: string, actor
   if (!appointment) {
     throw new AppError(404, "Appointment not found", "NOT_FOUND");
   }
-  assertOwnsAppointment(appointment.patientUserId, actor);
+  await assertOwnsAppointment(tx, tenantId, appointment, actor);
   if (appointment.status === "cancelled" || appointment.status === "done") {
     throw new AppError(400, "Cannot cancel this appointment", "INVALID_STATUS");
   }
@@ -311,7 +327,7 @@ export async function rescheduleBooking(
     if (!old) {
       throw new AppError(404, "Appointment not found", "NOT_FOUND");
     }
-    assertOwnsAppointment(old.patientUserId, actor);
+    await assertOwnsAppointment(tx, tenantId, old, actor);
     if (old.status !== "waiting") {
       throw new AppError(400, "Can only reschedule waiting appointments", "INVALID_STATUS");
     }

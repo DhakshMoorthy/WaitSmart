@@ -1,4 +1,5 @@
 import { get, post, patch, del, uploadFile, apiBaseUrl, wakeApi } from './api';
+import { compareQueueOrder } from './slotUtils';
 import { getAuth, hydrate, setUser } from './auth';
 import {
   connectSocket,
@@ -111,11 +112,15 @@ export async function getClinic(clinicId: string) {
   return clinics.find((c) => c.id === clinicId) || null;
 }
 
-export async function getDoctors(clinicId?: string) {
+export async function getDoctors(clinicId?: string, opts: { onlyUserId?: string } = {}) {
   const res = clinicId
     ? await get('/doctors', { clinicId })
     : await get('/doctors');
-  const doctors = res.data || [];
+  let doctors = res.data || [];
+  // A doctor login manages only its own queue: keep just the doctor record linked to that user.
+  if (opts.onlyUserId) {
+    doctors = doctors.filter((d: { userId?: string | null }) => d.userId === opts.onlyUserId);
+  }
   return Promise.all(
     doctors.map(async (d: Parameters<typeof mapDoctor>[0]) =>
       mapDoctor(d, await getDoctorSlotDuration(d.id)),
@@ -160,7 +165,7 @@ export async function getDoctorDaySlots(doctorId: string, date: string) {
 
 export async function getAppointments(doctorId: string, date: string): Promise<Appointment[]> {
   const { appointments } = await fetchDoctorDay(doctorId, date);
-  return appointments.sort((a, b) => a.token - b.token);
+  return appointments.sort(compareQueueOrder);
 }
 
 export async function getAppointment(appointmentId: string): Promise<Appointment | null> {
@@ -532,7 +537,7 @@ export function subscribeAppointments(
   callback: (appointments: Appointment[]) => void,
 ) {
   const unsub = subscribeDoctorDayInternal(doctorId, date, ({ appointments }) => {
-    callback(appointments.sort((a, b) => a.token - b.token));
+    callback(appointments.sort(compareQueueOrder));
   });
   return unsub;
 }

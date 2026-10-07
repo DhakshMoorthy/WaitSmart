@@ -16,18 +16,22 @@ export default function AdminCalendar({
   futureDays = 14,
 }: Props) {
   const days = getCalendarDays(pastDays, futureDays);
-  const monthLabel = days.length
-    ? new Date(days[0].iso + 'T12:00:00').toLocaleDateString('en-IN', {
-        month: 'long',
-        year: 'numeric',
-      })
+  // Show the real span (e.g. "23 Sep – 21 Oct 2026"); the old label named only the first day's month.
+  const fmt = (iso: string, withYear: boolean) =>
+    new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      ...(withYear ? { year: 'numeric' } : {}),
+    });
+  const rangeLabel = days.length
+    ? `${fmt(days[0].iso, false)} – ${fmt(days[days.length - 1].iso, true)}`
     : '';
 
   return (
     <div className="rounded-2xl bg-white p-4 card-shadow">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-slate-800">Calendar</h2>
-        <span className="text-[10px] text-slate-400">{monthLabel} ±{pastDays}d</span>
+        <span className="text-[10px] text-slate-400">{rangeLabel}</span>
       </div>
       <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[9px] font-semibold uppercase text-slate-400">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (

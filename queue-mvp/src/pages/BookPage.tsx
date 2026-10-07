@@ -309,6 +309,7 @@ export default function BookPage() {
             </button>
           </div>
           <select
+            aria-label="Booking for"
             value={selectedFamilyId}
             onChange={(e) => applyFamily(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-primary"

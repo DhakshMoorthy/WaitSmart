@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, User } from 'lucide-react';
+import { ArrowLeft, Loader2, LogOut, User } from 'lucide-react';
 import { getPatientProfile, updatePatientProfile } from '../lib/db';
+import { logoutAndRevoke } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { isValidPhone, normalizePhone, formatPhoneDisplay } from '../lib/phone';
 
@@ -130,6 +131,18 @@ export default function ProfilePage() {
       <Link to="/track" className="block text-center text-sm font-medium text-primary hover:underline">
         View my appointments →
       </Link>
+
+      <button
+        type="button"
+        onClick={() => {
+          logoutAndRevoke();
+          navigate('/login', { replace: true });
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        <LogOut className="h-4 w-4" />
+        Sign out
+      </button>
     </div>
   );
 }
