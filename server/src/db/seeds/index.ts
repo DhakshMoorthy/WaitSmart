@@ -1,30 +1,25 @@
+import crypto from "crypto";
+import { eq, inArray } from "drizzle-orm";
 import { db, pool } from "../../config/db.js";
+import { env } from "../../config/env.js";
 import { tenants } from "../schema/tenants.js";
 import { users } from "../schema/users.js";
-import { clinics } from "../schema/clinics.js";
-import { doctors } from "../schema/doctors.js";
-import { doctorSchedules } from "../schema/doctorSchedules.js";
-import { eq } from "drizzle-orm";
-import crypto from "crypto";
-import { env } from "../../config/env.js";
 import { hashPassword, comparePassword } from "../../utils/hash.js";
 import { logger } from "../../utils/logger.js";
+import { KNOWN_DEV_PASSWORDS, LEGACY_SAMPLE_EMAILS } from "./known-passwords.js";
+import { cleanupLegacySampleData, DEMO_TENANT_NAME } from "./legacy-cleanup.js";
 import { seedChennaiClinics } from "./chennai-clinics.js";
+import { seedTestData } from "./test-data.js";
 
 const isProd = env.NODE_ENV === "production";
 
-// Well-known dev passwords. They must never be usable in production.
-const KNOWN_DEV_PASSWORDS = ["Admin@1234", "Doctor@1234", "Patient@1234"];
-
-/** Dev: the documented password. Production: random, unrecoverable (reset via admin flow). */
-function seedPassword(devPassword: string): string {
-  return isProd ? crypto.randomBytes(24).toString("hex") : devPassword;
-}
-
-/** Production only: rotate any account still using a published seed password. */
+/**
+ * Production only: any account from the ORIGINAL seed that still uses a published password gets a
+ * random one. Limited to those known emails, so the cost does not grow with the number of users.
+ */
 async function neutralizeKnownPasswords() {
-  const all = await db.select().from(users);
-  for (const u of all) {
+  const legacy = await db.select().from(users).where(inArray(users.email, LEGACY_SAMPLE_EMAILS));
+  for (const u of legacy) {
     for (const known of KNOWN_DEV_PASSWORDS) {
       if (await comparePassword(known, u.passwordHash)) {
         const randomHash = await hashPassword(crypto.randomBytes(24).toString("hex"));
@@ -55,13 +50,13 @@ async function seed() {
 
   if (isProd) await neutralizeKnownPasswords();
 
-  // 1. Superadmin user (no tenant)
+  // 1. Superadmin (no tenant).
   const creds = superadminCredentials();
   if (!creds) {
-    logger.warn("SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set � skipping superadmin creation");
+    logger.warn("SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD not set - skipping superadmin creation");
   } else {
-    // NOTE: users.email has no unique constraint, so onConflictDoNothing() would never fire and
-    // every deploy would insert another superadmin row. Check explicitly instead.
+    // users.email has no unique constraint, so onConflictDoNothing() would never fire and every
+    // deploy would insert another superadmin row. Check explicitly instead.
     const existing = await db.query.users.findFirst({ where: eq(users.email, creds.email) });
     if (existing) {
       logger.info("Superadmin already exists, skipping");
@@ -81,155 +76,25 @@ async function seed() {
     }
   }
 
-  // 2. Sample tenant
-  const [tenant] = await db
+  // 2. Default tenant: the clinic group every phone-login patient joins.
+  const [created] = await db
     .insert(tenants)
     .values({
-      name: "Apollo Clinic",
-      slug: "apollo-clinic",
+      name: DEMO_TENANT_NAME,
+      slug: env.DEFAULT_TENANT_SLUG,
       subdomain: "apollo",
-      branding: { primaryColor: "#2563eb", appName: "Apollo WaitSmart" },
+      branding: { primaryColor: "#2563eb", appName: "WaitSmart" },
     })
     .onConflictDoNothing()
     .returning();
+  if (created) logger.info(`Created default tenant: ${created.name} (${created.id})`);
 
-  if (!tenant) {
-    logger.info("Tenant already exists, skipping sample seeds");
-    await seedChennaiClinics();
-    await pool.end();
-    return;
-  }
-  logger.info(`Created tenant: ${tenant.name} (${tenant.id})`);
-
-  // 3. Admin user for the tenant
-  const adminPassword = await hashPassword(seedPassword("Admin@1234"));
-  const [admin] = await db
-    .insert(users)
-    .values({
-      name: "Clinic Admin",
-      email: "admin@apollo.waitsmart.app",
-      phone: "+919999900001",
-      passwordHash: adminPassword,
-      role: "admin",
-      tenantId: tenant.id,
-    })
-    .returning();
-  logger.info(`Created admin: ${admin.email}`);
-
-  // 4. Sample clinics
-  const [clinic] = await db
-    .insert(clinics)
-    .values({
-      tenantId: tenant.id,
-      name: "Apollo Main Branch",
-      address: "123 Health Street, Chennai 600001",
-      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
-    })
-    .returning();
-  logger.info(`Created clinic: ${clinic.name}`);
-
-  const [clinic2] = await db
-    .insert(clinics)
-    .values({
-      tenantId: tenant.id,
-      name: "Apollo — Anna Nagar",
-      address: "45 Anna Nagar West, Chennai 600040",
-      hours: "9:00 AM – 2:00 PM • 4:00 PM – 6:00 PM",
-    })
-    .returning();
-  logger.info(`Created clinic: ${clinic2.name}`);
-
-  // 5. Doctor user
-  const doctorPassword = await hashPassword(seedPassword("Doctor@1234"));
-  const [doctorUser] = await db
-    .insert(users)
-    .values({
-      name: "Dr. Priya Sharma",
-      email: "priya@apollo.waitsmart.app",
-      phone: "+919999900002",
-      passwordHash: doctorPassword,
-      role: "doctor",
-      tenantId: tenant.id,
-    })
-    .returning();
-
-  // 6. Doctor record
-  const [doctor] = await db
-    .insert(doctors)
-    .values({
-      tenantId: tenant.id,
-      clinicId: clinic.id,
-      userId: doctorUser.id,
-      name: "Dr. Priya Sharma",
-      specialization: "General Medicine",
-      experienceYears: 8,
-    })
-    .returning();
-  logger.info(`Created doctor: ${doctor.name}`);
-
-  const [doctor2] = await db
-    .insert(doctors)
-    .values({
-      tenantId: tenant.id,
-      clinicId: clinic2.id,
-      name: "Dr. Karthik Iyer",
-      specialization: "General Physician",
-      experienceYears: 12,
-    })
-    .returning();
-  logger.info(`Created doctor: ${doctor2.name}`);
-
-  // Doctor weekly schedules (Mon–Sat, 9:00–18:00, 30-min slots — aligns with queue-mvp UI)
-  const scheduleDays = [1, 2, 3, 4, 5, 6];
-  await db.insert(doctorSchedules).values(
-    scheduleDays.flatMap((dayOfWeek) => [
-      {
-        tenantId: tenant.id,
-        doctorId: doctor.id,
-        dayOfWeek,
-        startTime: "09:00",
-        endTime: "18:00",
-        slotDurationMinutes: 30,
-      },
-      {
-        tenantId: tenant.id,
-        doctorId: doctor2.id,
-        dayOfWeek,
-        startTime: "09:00",
-        endTime: "18:00",
-        slotDurationMinutes: 30,
-      },
-    ]),
-  );
-  logger.info("Created doctor schedules (Mon–Sat 09:00–18:00, 30-min slots)");
-
-  // 7. Patient user
-  const patientPassword = await hashPassword(seedPassword("Patient@1234"));
-  const [patient] = await db
-    .insert(users)
-    .values({
-      name: "Rajesh Kumar",
-      email: "rajesh@example.com",
-      phone: "+919876543210",
-      passwordHash: patientPassword,
-      role: "patient",
-      tenantId: tenant.id,
-    })
-    .returning();
-  logger.info(`Created patient: ${patient.email}`);
-
+  // 3. Remove the fake sample data from earlier versions, then load the real clinics + test data.
+  await cleanupLegacySampleData();
   await seedChennaiClinics();
+  await seedTestData();
 
   logger.info("Seeding complete!");
-  if (!isProd) {
-    logger.info("---");
-    logger.info("Test credentials (development only):");
-    logger.info("  Superadmin: superadmin@waitsmart.app / Admin@1234");
-    logger.info("  Admin:      admin@apollo.waitsmart.app / Admin@1234");
-    logger.info("  Doctor:     priya@apollo.waitsmart.app / Doctor@1234");
-    logger.info("  Patient:    rajesh@example.com / Patient@1234");
-  }
-
   await pool.end();
 }
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Phone, Sparkles } from 'lucide-react';
+import { Phone, Sparkles } from 'lucide-react';
 import { getClinics, getSavedTokens } from '../lib/db';
-import { HOURS_PILLS, TAGLINE, APP_NAME } from '../lib/constants';
+import { HIGHLIGHT_PILLS, TAGLINE, APP_NAME } from '../lib/constants';
 import type { Clinic, SavedToken } from '../lib/types';
 import ClinicCard from '../components/ClinicCard';
 import ActiveTokenCard from '../components/ActiveTokenCard';
@@ -29,12 +29,11 @@ export default function HomePage() {
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {HOURS_PILLS.map((pill) => (
+          {HIGHLIGHT_PILLS.map((pill) => (
             <span
               key={pill}
               className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm"
             >
-              <Clock className="h-3 w-3" />
               {pill}
             </span>
           ))}

@@ -17,12 +17,12 @@ import {
   cancelAppointment,
   fileUrl,
   getAppointment,
+  getClinic,
   getDoctor,
   subscribeAppointments,
   subscribeQueue,
 } from '../lib/db';
 import { getAuth } from '../lib/auth';
-import { HOURS_DISPLAY } from '../lib/constants';
 import {
   estimateWaitMinutes,
   formatDisplayDate,
@@ -38,6 +38,7 @@ export default function TokenPage() {
   const navigate = useNavigate();
   const [appointment, setAppointment] = useState<Appointment | null>(null);
   const [doctor, setDoctor] = useState<Doctor | null>(null);
+  const [clinicHours, setClinicHours] = useState('');
   const [queue, setQueue] = useState<Queue | null>(null);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -52,6 +53,7 @@ export default function TokenPage() {
       if (apt) {
         const doc = await getDoctor(apt.doctor_id);
         setDoctor(doc);
+        getClinic(apt.clinic_id).then((c) => setClinicHours(c?.hours ?? '')).catch(() => {});
       }
     });
   }, [appointmentId, refreshKey]);
@@ -234,10 +236,12 @@ export default function TokenPage() {
         <div>
           <p className="font-semibold text-slate-900">{doctor.name}</p>
           <p className="text-sm text-slate-500">{doctor.specialization}</p>
-          <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-            <Clock className="h-3 w-3" />
-            {HOURS_DISPLAY}
-          </div>
+          {clinicHours && (
+            <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+              <Clock className="h-3 w-3" />
+              {clinicHours}
+            </div>
+          )}
         </div>
       </div>
 
