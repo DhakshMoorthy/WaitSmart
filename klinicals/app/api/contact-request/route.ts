@@ -23,7 +23,9 @@ export async function POST(request: Request) {
 
   // Let the form be exercised during local development without requiring a
   // Supabase project. Local preview submissions are not stored or sent.
-  const hasSupabaseConfig = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+  const hasSupabaseConfig = Boolean(
+    process.env.SUPABASE_URL && (process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY),
+  )
   if (process.env.NODE_ENV !== 'production' && !hasSupabaseConfig) {
     return NextResponse.json({ ok: true, localOnly: true }, { status: 201 })
   }

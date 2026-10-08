@@ -9,14 +9,14 @@ Next.js App Router marketing site for Klinicals. Demo requests are validated ser
 3. Run the SQL in `supabase/schema.sql` in the Supabase SQL editor.
 4. Start with `npm run dev`.
 
-Without Supabase configured, the form returns a clear configuration error and does not claim that an enquiry was received. Email notifications are optional; configure Resend with a verified sender to enable them.
+Without Supabase configured, local forms show a preview confirmation and do not save submissions. Configure Supabase locally to test database writes. Email notifications are optional; configure Resend with a verified sender to enable them.
 
 ## Vercel environment variables
 
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY` (server only)
+- `SUPABASE_SECRET_KEY` (server only; `SUPABASE_SERVICE_ROLE_KEY` is also accepted as a legacy name)
 - `ADMIN_DASHBOARD_TOKEN` (long random secret)
 - `RESEND_API_KEY` (optional until email notifications are activated)
 - `RESEND_FROM_EMAIL` (optional verified sender)
 
-The lead table has row level security enabled and no public policies. Only server routes using the service role can access it. `/admin/leads` uses an environment token sent as an HttpOnly, Secure-in-production, SameSite cookie. Restrict and rotate this token as part of production operations.
+Run `supabase/schema.sql` in the Supabase SQL editor to create the lead table. The table has row level security enabled and no public policies. Only server routes using the server-side secret key can access it. `/admin/leads` requires `ADMIN_DASHBOARD_TOKEN`, stored in an HttpOnly, Secure-in-production, SameSite cookie after sign-in. Configure that token separately from the Supabase key; the sign-in page reports when it is missing or incorrect.
