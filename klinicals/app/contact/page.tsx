@@ -23,6 +23,7 @@ const labelStyle: React.CSSProperties = {
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false)
+  const [localOnly, setLocalOnly] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -46,6 +47,7 @@ export default function ContactPage() {
         throw new Error(payload.error || 'Please check the required fields and try again.')
       }
 
+      setLocalOnly(Boolean(payload.localOnly))
       setSent(true)
       form.reset()
     } catch (err) {
@@ -86,9 +88,9 @@ export default function ContactPage() {
             {sent ? (
               <div style={{ textAlign: 'center', padding: '26px 12px' }}>
                 <div style={{ width: 66, height: 66, borderRadius: '50%', background: '#eaf6eb', color: '#3ca35f', display: 'grid', placeItems: 'center', margin: '0 auto 18px', fontSize: 30, fontWeight: 800 }}>✓</div>
-                <h3 style={{ margin: '0 0 10px', fontSize: 32, color: '#153756' }}>Your request is received.</h3>
+                <h3 style={{ margin: '0 0 10px', fontSize: 32, color: '#153756' }}>{localOnly ? 'Local preview received.' : 'Your request is received.'}</h3>
                 <p style={{ margin: 0, fontSize: 16, color: '#47627f', lineHeight: 1.6 }}>
-                  We&apos;ll get back to you shortly to arrange your demo.
+                  {localOnly ? 'Local preview only: this submission is not saved or sent. Configure Supabase to receive real submissions.' : 'We\'ll get back to you shortly to arrange your demo.'}
                 </p>
               </div>
             ) : (
@@ -133,7 +135,7 @@ export default function ContactPage() {
 
                   <div className="contact-wide">
                     <label style={labelStyle} htmlFor="preferredTime">Preferred demo time</label>
-                    <select id="preferredTime" name="preferredTime" defaultValue="" style={{ ...fieldStyle, appearance: 'auto' }}><option value="">No preference</option>{['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'].map(time => <option key={time} value={time}>{time}</option>)}</select>
+                    <input id="preferredTime" name="preferredTime" type="time" style={fieldStyle} />
                   </div>
 
                   <div className="contact-wide">

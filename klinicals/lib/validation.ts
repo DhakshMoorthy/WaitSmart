@@ -1,5 +1,17 @@
 import { z } from 'zod'
-export const demoRequestSchema=z.object({name:z.string().trim().min(2).max(120),clinic:z.string().trim().min(2).max(180),email:z.string().trim().email().max(254),phone:z.string().trim().max(40).optional().default(''),country:z.enum(['United States','Canada','Australia']),doctorCount:z.string().min(1).max(20),locations:z.string().max(30).optional().default(''),currentSystem:z.string().trim().max(200).optional().default(''),goal:z.string().trim().max(1000).optional().default(''),preferredDate:z.string().max(80).optional().default(''),preferredTime:z.string().max(80).optional().default(''),message:z.string().trim().max(3000).optional().default('')})
-export const contactRequestSchema=z.object({name:z.string().trim().min(2).max(120),clinic:z.string().trim().min(2).max(180),email:z.string().trim().email().max(254),phone:z.string().trim().max(40).optional().default(''),doctorCount:z.string().trim().min(1).max(20),preferredDate:z.string().trim().max(80).optional().default(''),preferredTime:z.string().trim().max(80).optional().default(''),message:z.string().trim().max(3000).optional().default('')})
-export type DemoRequest=z.infer<typeof demoRequestSchema>
-export type ContactRequest=z.infer<typeof contactRequestSchema>
+
+const leadRequestSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  clinic: z.string().trim().min(2).max(180),
+  email: z.string().trim().email().max(254),
+  phone: z.string().trim().max(40).optional().default(''),
+  doctorCount: z.string().trim().min(1).max(20),
+  preferredDate: z.string().trim().max(80).optional().default(''),
+  preferredTime: z.string().trim().max(80).optional().default(''),
+  message: z.string().trim().max(3000).optional().default(''),
+})
+
+export const demoRequestSchema = leadRequestSchema
+export const contactRequestSchema = leadRequestSchema
+export type DemoRequest = z.infer<typeof demoRequestSchema>
+export type ContactRequest = z.infer<typeof contactRequestSchema>
