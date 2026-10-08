@@ -18,5 +18,6 @@ create table if not exists public.demo_leads (
   status text not null default 'new' check (status in ('new','contacted','demo_scheduled','converted','closed'))
 );
 
+
 alter table public.demo_leads enable row level security;
 create index if not exists demo_leads_created_at_idx on public.demo_leads (created_at desc);

@@ -9,4 +9,4 @@ Next.js App Router marketing site for Klinicals. Demo requests are validated on 
 3. Set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in the server environment.
 4. Start with `npm run dev`.
 
-The demo form sends submissions to `/api/contact-request`. The secret key is used only by the server route and must never be exposed to browser code. If the database insert fails, the form reports an error and the server logs the database message.
+Demo and contact forms send submissions to `/api/contact-request` and are stored in `demo_leads`. Contact type and subject use the table's existing `current_system` and `goal` columns, so no schema migration is required. The secret key is used only by server routes and must never be exposed to browser code. The unlinked `/private-submissions` dashboard requires `ADMIN_DASHBOARD_PASSWORD` (defaults to `2921` if unset); it supports filters and CSV export.
