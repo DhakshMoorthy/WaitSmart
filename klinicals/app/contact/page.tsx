@@ -57,12 +57,12 @@ export default function ContactPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#f7f9fc', color: '#0d2540', fontFamily: 'Inter, sans-serif' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 28px 60px' }}>
+      <div className="contact-shell">
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0 18px' }}>
           <a href="/" aria-label="Klinicals home" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'inherit', textDecoration: 'none' }}><img src="/klinicals-mark.svg" alt="" width="42" height="42" /><span style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.04em', color: '#0d2540' }}>Klinicals</span></a>
         </header>
 
-        <section style={{ display: 'grid', gridTemplateColumns: '1fr 1.12fr', gap: 64, alignItems: 'center', paddingTop: 16 }}>
+        <section className="contact-layout">
           <div style={{ paddingRight: 10 }}>
             <a href="/" style={{ color: '#1e6fe7', fontWeight: 700, textDecoration: 'none' }}>← Back to home</a>
             <div style={{ fontSize: 14, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#1c6de0', fontWeight: 700, marginBottom: 22 }}>Book a free demo</div>
@@ -82,7 +82,7 @@ export default function ContactPage() {
             </div>
           </div>
 
-          <div style={{ border: '1px solid #dbe7f2', borderRadius: 18, background: 'rgba(255,255,255,0.8)', boxShadow: '0 8px 24px rgba(10, 35, 70, 0.04)', padding: '24px 26px 20px' }}>
+          <div className="contact-form-card">
             {sent ? (
               <div style={{ textAlign: 'center', padding: '26px 12px' }}>
                 <div style={{ width: 66, height: 66, borderRadius: '50%', background: '#eaf6eb', color: '#3ca35f', display: 'grid', placeItems: 'center', margin: '0 auto 18px', fontSize: 30, fontWeight: 800 }}>✓</div>
@@ -93,7 +93,7 @@ export default function ContactPage() {
               </div>
             ) : (
               <form onSubmit={onSubmit} noValidate>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                <div className="contact-fields">
                   <div>
                     <label style={labelStyle} htmlFor="name">Full name *</label>
                     <input id="name" name="name" required style={fieldStyle} autoComplete="name" />
@@ -131,12 +131,12 @@ export default function ContactPage() {
                     <input id="preferredDate" name="preferredDate" type="date" min={new Date().toISOString().slice(0, 10)} style={fieldStyle} />
                   </div>
 
-                  <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="contact-wide">
                     <label style={labelStyle} htmlFor="preferredTime">Preferred demo time</label>
                     <select id="preferredTime" name="preferredTime" defaultValue="" style={{ ...fieldStyle, appearance: 'auto' }}><option value="">No preference</option>{['9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM','12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM','4:00 PM','4:30 PM'].map(time => <option key={time} value={time}>{time}</option>)}</select>
                   </div>
 
-                  <div style={{ gridColumn: '1 / -1' }}>
+                  <div className="contact-wide">
                     <label style={labelStyle} htmlFor="message">Additional message</label>
                     <textarea id="message" name="message" rows={4} style={{ ...fieldStyle, resize: 'vertical', minHeight: 112 }} />
                   </div>

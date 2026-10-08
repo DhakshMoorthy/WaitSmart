@@ -84,3 +84,10 @@
 .logo .brand-mark{width:34px;height:34px;display:block;object-fit:contain;border-radius:9px}
 .mark{display:none}
 @media(max-width:560px){.logo .brand-mark{width:32px;height:32px}}
+.contact-shell{max-width:1280px;margin:0 auto;padding:24px 28px 60px}
+.contact-layout{display:grid;grid-template-columns:1fr 1.12fr;gap:64px;align-items:center;padding-top:16px}
+.contact-form-card{border:1px solid #dbe7f2;border-radius:18px;background:rgba(255,255,255,.8);box-shadow:0 8px 24px rgba(10,35,70,.04);padding:24px 26px 20px}
+.contact-fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.contact-wide{grid-column:1/-1}
+@media(max-width:760px){.contact-shell{padding:18px 18px 40px}.contact-layout{grid-template-columns:1fr;gap:28px;align-items:start}.contact-layout h1{font-size:clamp(42px,13vw,72px)!important}.contact-layout>div:first-child>p{font-size:19px!important}.contact-form-card{padding:20px 18px}}
+@media(max-width:480px){.contact-fields{grid-template-columns:1fr;gap:14px}.contact-wide{grid-column:auto}.contact-layout>div:first-child{padding-right:0!important}}
