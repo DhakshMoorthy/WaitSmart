@@ -5,7 +5,12 @@ import * as analyticsController from "./analytics.controller.js";
 
 export const analyticsRouter = Router();
 
-analyticsRouter.use(requireAuth, requireTenant, requireRole("admin"));
+analyticsRouter.use(requireAuth, requireTenant);
+
+// Clinic summary: staff see the whole clinic (or one doctor), a doctor only their own numbers.
+analyticsRouter.get("/summary", requireRole("admin", "superadmin", "doctor"), analyticsController.summary);
+
+analyticsRouter.use(requireRole("admin"));
 
 analyticsRouter.get("/daily", analyticsController.daily);
 analyticsRouter.get("/wait-times", analyticsController.waitTimes);
