@@ -49,6 +49,7 @@ export function mapDoctor(
     specialization: string;
     experienceYears?: number;
     gender?: string | null;
+    bookingWindowDays?: number;
   },
   slotDurationMinutes = 30,
 ) {
@@ -64,6 +65,7 @@ export function mapDoctor(
     specialization: doctor.specialization,
     experience_years: doctor.experienceYears ?? 0,
     slot_duration_minutes: slotDurationMinutes,
+    booking_window_days: doctor.bookingWindowDays ?? 3,
     gender,
   };
 }

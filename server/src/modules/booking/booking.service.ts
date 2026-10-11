@@ -30,6 +30,16 @@ function staffManagesDoctor(actor: Actor | null, doctor: { userId: string | null
   return actor.role === "doctor" && doctor.userId !== null && doctor.userId === actor.userId;
 }
 
+/**
+ * Last date patients may book: today plus (windowDays - 1) more days, with one day of slack because the server
+ * does not know the clinic's time zone. The UI limits the date picker to exactly the window; this stops direct API use.
+ */
+function lastBookableDate(windowDays: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + windowDays);
+  return d.toISOString().slice(0, 10);
+}
+
 export async function getAvailability(
   tenantId: string,
   doctorId: string,
@@ -54,6 +64,15 @@ export async function getAvailability(
   });
   if (breakRecord) {
     return { doctorId, date, slots: [], message: "Doctor is on break" };
+  }
+
+  if (!staffManagesDoctor(actor, doctor) && date > lastBookableDate(doctor.bookingWindowDays)) {
+    return {
+      doctorId,
+      date,
+      slots: [],
+      message: `Booking opens ${doctor.bookingWindowDays} day${doctor.bookingWindowDays === 1 ? "" : "s"} ahead`,
+    };
   }
 
   // Calendar day-of-week (avoid UTC shift from `new Date("YYYY-MM-DD")`)
@@ -178,6 +197,7 @@ async function bookInTx(
   tenantId: string,
   patientUserId: string | null,
   input: CreateBookingInput,
+  enforceWindow = false,
 ) {
   const slot = await tx.query.slots.findFirst({
     where: and(
@@ -195,6 +215,13 @@ async function bookInTx(
   });
   if (!doctor || doctor.clinicId !== input.clinicId) {
     throw new AppError(400, "Doctor does not belong to this clinic", "INVALID_CLINIC");
+  }
+  if (enforceWindow && slot.date > lastBookableDate(doctor.bookingWindowDays)) {
+    throw new AppError(
+      400,
+      `Booking for this doctor opens ${doctor.bookingWindowDays} day${doctor.bookingWindowDays === 1 ? "" : "s"} ahead`,
+      "OUTSIDE_BOOKING_WINDOW",
+    );
   }
 
   const claimed = await tx
@@ -266,7 +293,7 @@ export async function createBooking(
   patientUserId: string | null,
   input: CreateBookingInput,
 ) {
-  const appointment = await db.transaction((tx) => bookInTx(tx, tenantId, patientUserId, input));
+  const appointment = await db.transaction((tx) => bookInTx(tx, tenantId, patientUserId, input, true));
   emitBookingCreated(appointment, input.doctorId);
   return appointment;
 }
@@ -343,7 +370,7 @@ export async function rescheduleBooking(
       patientPhone: old.patientPhone ?? undefined,
       symptoms: old.symptoms ?? undefined,
       fileId: old.fileId ?? undefined,
-    });
+    }, actor.role === "patient");
   });
   emitBookingCreated(appointment, appointment.doctorId);
   return appointment;

@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useStaffDoctors } from '../hooks/useStaffDoctors';
 import DoctorAvatar from '../components/DoctorAvatar';
 import LoadingScreen from '../components/LoadingScreen';
+import AvailabilityPanel from '../components/AvailabilityPanel';
 import QueueConsole from '../components/QueueConsole';
 import StaffLoginCard from '../components/StaffLoginCard';
 
@@ -64,6 +65,14 @@ export default function DoctorPage() {
       doctorsError={error}
       lockedToDoctor
       allowReset={false}
+      doctorExtra={(d) => (
+        <AvailabilityPanel
+          key={d.id}
+          doctorId={d.id}
+          doctorName={d.name}
+          bookingWindowDays={d.booking_window_days}
+        />
+      )}
       onLogout={() => logoutAndRevoke()}
       headerExtra={
         <div className="flex items-center gap-3 rounded-2xl bg-white p-3 card-shadow">

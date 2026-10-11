@@ -118,6 +118,10 @@ export function post(path: string, body: unknown) {
   return api(path, { method: 'POST', body });
 }
 
+export function put(path: string, body: unknown) {
+  return api(path, { method: 'PUT', body });
+}
+
 export function patch(path: string, body: unknown) {
   return api(path, { method: 'PATCH', body });
 }

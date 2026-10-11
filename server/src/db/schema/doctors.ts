@@ -19,6 +19,8 @@ export const doctors = pgTable(
     experienceYears: integer("experience_years").notNull().default(0),
     /** "male" | "female" | null. Only picks the placeholder avatar; null = neutral. */
     gender: text("gender"),
+    /** Patients can book today plus the next (N - 1) days. Staff are not limited. */
+    bookingWindowDays: integer("booking_window_days").notNull().default(3),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
