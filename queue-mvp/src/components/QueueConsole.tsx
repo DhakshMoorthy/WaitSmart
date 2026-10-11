@@ -37,6 +37,29 @@ import {
   Users,
 } from 'lucide-react';
 
+type BookingFilter = 'all' | 'waiting' | 'completed' | 'no_show';
+
+const FILTER_TABS: { key: BookingFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'waiting', label: 'Waiting' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'no_show', label: 'No show' },
+];
+
+/** Which tab a booking belongs to (cancelled ones only show under All). */
+function matchesFilter(apt: { status: string; _rawStatus?: string }, filter: BookingFilter) {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'waiting':
+      return apt.status === 'waiting' || apt.status === 'skipped' || apt._rawStatus === 'in-cabin';
+    case 'completed':
+      return apt.status === 'done';
+    case 'no_show':
+      return apt.status === 'no_show';
+  }
+}
+
 const STATUS_OPTIONS: AppointmentStatus[] = [
   'waiting',
   'in-cabin',
@@ -71,6 +94,7 @@ export default function QueueConsole({
   onLogout,
 }: QueueConsoleProps) {
   const [selectedDoctor, setSelectedDoctor] = useState('');
+  const [bookingFilter, setBookingFilter] = useState<BookingFilter>('all');
   const [selectedDate, setSelectedDate] = useState('');
   const [queue, setQueue] = useState<Queue | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -222,6 +246,14 @@ export default function QueueConsole({
   };
 
   const selectedDoc = doctors.find((d) => d.id === selectedDoctor);
+  const filterCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        FILTER_TABS.map((f) => [f.key, appointments.filter((a) => matchesFilter(a, f.key)).length]),
+      ) as Record<BookingFilter, number>,
+    [appointments],
+  );
+  const visibleAppointments = appointments.filter((a) => matchesFilter(a, bookingFilter));
 
   return (
     <div className="space-y-5 pb-6">
@@ -453,11 +485,33 @@ export default function QueueConsole({
         <p className="mb-3 text-[10px] text-slate-400">
           Tap status to fix accidental next/skip
         </p>
+        {appointments.length > 0 && (
+          <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1" role="tablist" aria-label="Filter bookings">
+            {FILTER_TABS.map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                role="tab"
+                aria-selected={bookingFilter === f.key}
+                onClick={() => setBookingFilter(f.key)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  bookingFilter === f.key
+                    ? 'bg-primary text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {f.label} ({filterCounts[f.key]})
+              </button>
+            ))}
+          </div>
+        )}
         {appointments.length === 0 ? (
           <p className="py-6 text-center text-sm text-slate-400">No bookings for this date.</p>
+        ) : visibleAppointments.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-400">Nothing here yet.</p>
         ) : (
           <div className="space-y-2">
-            {appointments.map((apt) => (
+            {visibleAppointments.map((apt) => (
               <div
                 key={apt.id}
                 className={`rounded-xl border px-3 py-2.5 ${
