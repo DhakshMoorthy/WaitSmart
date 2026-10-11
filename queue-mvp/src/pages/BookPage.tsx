@@ -10,7 +10,9 @@ import {
   rescheduleAppointment,
   subscribeToDoctorDay,
   uploadAppointmentFile,
+  getDoctorServices,
 } from '../lib/db';
+import type { ClinicService } from '../lib/db';
 import { useAuth } from '../hooks/useAuth';
 import {
   formatSlotGroupLabel,
@@ -58,6 +60,8 @@ export default function BookPage() {
     hasSlots: false,
   });
   const [scheduleMessage, setScheduleMessage] = useState<string | null>(null);
+  const [services, setServices] = useState<ClinicService[]>([]);
+  const [serviceId, setServiceId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -66,6 +70,17 @@ export default function BookPage() {
   useEffect(() => {
     if (doctorId) getDoctor(doctorId).then(setDoctor);
   }, [doctorId]);
+
+  // What this doctor offers (patients pick one). Rescheduling keeps the original booking's service.
+  useEffect(() => {
+    if (!doctorId || rescheduleId) return;
+    getDoctorServices(doctorId)
+      .then((list) => {
+        setServices(list);
+        setServiceId((cur) => (list.some((s) => s.id === cur) ? cur : ''));
+      })
+      .catch(() => setServices([]));
+  }, [doctorId, rescheduleId]);
 
   useEffect(() => {
     if (user?.name) setPatientName(user.name);
@@ -134,6 +149,10 @@ export default function BookPage() {
       setError('Please fill in all required fields.');
       return;
     }
+    if (!rescheduleId && services.length > 0 && !serviceId) {
+      setError('Please choose what the visit is for.');
+      return;
+    }
     if (!isValidPhone(phone)) {
       setError('Enter a valid 10-digit mobile number.');
       return;
@@ -167,6 +186,7 @@ export default function BookPage() {
         slotTime: selectedSlot,
         notes: description,
         fileId,
+        serviceId: serviceId || undefined,
       });
       navigate(`/token/${appointment.id}`);
     } catch (e) {
@@ -253,6 +273,33 @@ export default function BookPage() {
           <p className="text-xs text-slate-400">{doctor.slot_duration_minutes}-min slots</p>
         </div>
       </div>
+
+      {!rescheduleId && services.length > 0 && (
+        <section>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            What is the visit for?
+          </div>
+          <div className="space-y-2" role="radiogroup" aria-label="Service">
+            {services.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                role="radio"
+                aria-checked={serviceId === s.id}
+                onClick={() => setServiceId(s.id)}
+                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-sm transition ${
+                  serviceId === s.id
+                    ? 'bg-primary text-white shadow-md'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:border-primary'
+                }`}
+              >
+                <span className="font-semibold">{s.name}</span>
+                <span className="text-xs opacity-80">{s.durationMinutes} min</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">

@@ -59,6 +59,7 @@ export async function getHistory(userId: string, tenantId: string) {
         symptoms: appt.symptoms,
         doctorNotes: appt.doctorNotes,
         fileId: appt.fileId,
+        serviceName: appt.serviceName,
       };
     }),
   );

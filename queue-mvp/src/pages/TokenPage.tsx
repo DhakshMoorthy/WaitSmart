@@ -305,6 +305,13 @@ export default function TokenPage() {
         </div>
       </div>
 
+      {appointment.service_name && (
+        <div className="rounded-2xl bg-white p-4 card-shadow">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Service</div>
+          <p className="text-sm font-medium text-slate-700">{appointment.service_name}</p>
+        </div>
+      )}
+
       {appointment.notes && (
         <div className="rounded-2xl bg-white p-4 card-shadow">
           <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">

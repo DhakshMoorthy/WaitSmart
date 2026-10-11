@@ -486,6 +486,9 @@ export default function QueueConsole({
                       {apt.slot_time} • Token #{apt.token}
                       {apt.phone ? ` • ${formatPhoneDisplay(apt.phone)}` : ''}
                     </p>
+                    {apt.service_name && (
+                      <p className="mt-0.5 text-[11px] font-semibold text-primary">{apt.service_name}</p>
+                    )}
                     {apt.notes && (
                       <p className="mt-1 text-[10px] text-slate-500">
                         <span className="font-semibold">Patient: </span>

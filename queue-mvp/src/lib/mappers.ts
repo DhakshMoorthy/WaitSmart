@@ -89,6 +89,7 @@ interface BackendAppointment {
   symptoms?: string;
   doctorNotes?: string | null;
   fileId?: string | null;
+  serviceName?: string | null;
   createdAt?: string;
 }
 
@@ -114,6 +115,7 @@ export function mapAppointment(
     status: mapStatus(rawStatus),
     _rawStatus: rawStatus,
     notes: appointment.symptoms || '',
+    service_name: appointment.serviceName || undefined,
     doctor_notes: appointment.doctorNotes || undefined,
     attachment_name: appointment.fileId ? 'Attached file' : undefined,
     attachment_data: appointment.fileId || undefined,
@@ -134,6 +136,7 @@ export function mapHistoryItem(item: {
   symptoms?: string;
   doctorNotes?: string | null;
   fileId?: string | null;
+  serviceName?: string | null;
   clinicId?: string;
   patientPhone?: string;
 }): Appointment {
@@ -153,6 +156,7 @@ export function mapHistoryItem(item: {
     status: mapStatus(item.status),
     _rawStatus: item.status,
     notes: item.symptoms || '',
+    service_name: item.serviceName || undefined,
     doctor_notes: item.doctorNotes || undefined,
     attachment_name: item.fileId ? 'Attached file' : undefined,
     attachment_data: item.fileId || undefined,
