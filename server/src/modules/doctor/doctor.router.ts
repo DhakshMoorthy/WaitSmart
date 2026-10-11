@@ -18,3 +18,4 @@ doctorRouter.get("/:id/schedules", doctorController.getSchedules);
 doctorRouter.put("/:id/schedules", requireAdminOrOwnDoctor, doctorController.updateSchedules);
 doctorRouter.get("/:id/breaks", doctorController.getBreaks);
 doctorRouter.post("/:id/breaks", requireAdminOrOwnDoctor, doctorController.createBreak);
+doctorRouter.delete("/:id/breaks/:breakId", requireAdminOrOwnDoctor, doctorController.removeBreak);

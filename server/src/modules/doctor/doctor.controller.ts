@@ -103,3 +103,13 @@ export async function createBreak(req: AuthedRequest, res: Response, next: NextF
     next(err);
   }
 }
+
+export async function removeBreak(req: AuthedRequest, res: Response, next: NextFunction) {
+  try {
+    const tenantId = tenantScope(req);
+    const data = await doctorService.deleteBreak(tenantId, req.params.id, req.params.breakId);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}

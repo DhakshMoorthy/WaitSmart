@@ -7,6 +7,7 @@ export const createDoctorBody = z.object({
   specialization: z.string().min(2).max(200),
   experienceYears: z.number().int().min(0).max(80).default(0),
   gender: z.enum(["male", "female"]).nullable().optional(),
+  bookingWindowDays: z.number().int().min(1).max(60).optional(),
 });
 
 export const updateDoctorBody = createDoctorBody.partial().omit({ clinicId: true });
@@ -19,7 +20,7 @@ export const scheduleItemSchema = z.object({
 });
 
 export const updateScheduleBody = z.object({
-  schedules: z.array(scheduleItemSchema).min(1).max(7),
+  schedules: z.array(scheduleItemSchema).max(7),
 });
 
 export const createBreakBody = z.object({

@@ -71,6 +71,7 @@ export async function createTestDoctor(
       name: "Dr. Test",
       specialization: "General",
       experienceYears: 5,
+      bookingWindowDays: 30, // production default is 3; tests book up to a week ahead
       ...overrides,
     })
     .returning();

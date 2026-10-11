@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../../config/db.js";
 import { doctors, doctorSchedules, doctorBreaks, clinics } from "../../db/schema/index.js";
 import { AppError } from "../../types/index.js";
@@ -94,7 +94,19 @@ export async function updateSchedules(tenantId: string, doctorId: string, input:
     slotDurationMinutes: s.slotDurationMinutes,
   }));
 
-  const inserted = await db.insert(doctorSchedules).values(rows).returning();
+  const inserted = rows.length ? await db.insert(doctorSchedules).values(rows).returning() : [];
+
+  // Slots are generated once per date and cached, so drop them from yesterday on and let them be rebuilt from the new
+  // hours / slot length the next time someone opens that date. Any date that already has an appointment (even a
+  // cancelled one: deleting its slot would cascade-delete the history) keeps its slots, so nobody's token moves.
+  await db.execute(sql`
+    DELETE FROM slots
+    WHERE doctor_id = ${doctorId}
+      AND tenant_id = ${tenantId}
+      AND date >= (CURRENT_DATE - 1)
+      AND date NOT IN (
+        SELECT s.date FROM slots s JOIN appointments a ON a.slot_id = s.id WHERE s.doctor_id = ${doctorId}
+      )`);
   return inserted;
 }
 
@@ -112,5 +124,19 @@ export async function createBreak(tenantId: string, doctorId: string, input: Cre
     .insert(doctorBreaks)
     .values({ tenantId, doctorId, ...input })
     .returning();
+  return brk;
+}
+
+export async function deleteBreak(tenantId: string, doctorId: string, breakId: string) {
+  await getDoctor(tenantId, doctorId);
+  const [brk] = await db
+    .delete(doctorBreaks)
+    .where(
+      and(eq(doctorBreaks.id, breakId), eq(doctorBreaks.doctorId, doctorId), eq(doctorBreaks.tenantId, tenantId)),
+    )
+    .returning();
+  if (!brk) {
+    throw new AppError(404, "Break not found", "NOT_FOUND");
+  }
   return brk;
 }

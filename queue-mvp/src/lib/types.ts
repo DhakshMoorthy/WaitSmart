@@ -22,6 +22,8 @@ export interface Doctor {
   specialization: string;
   experience_years: number;
   slot_duration_minutes: number;
+  /** Patients can book today plus the next (N - 1) days. */
+  booking_window_days: number;
   /** Picks the male/female placeholder avatar; null/absent = neutral. */
   gender?: 'male' | 'female' | null;
 }

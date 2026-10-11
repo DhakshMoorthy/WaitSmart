@@ -1,4 +1,4 @@
-import { get, post, patch, del, uploadFile, apiBaseUrl, wakeApi } from './api';
+import { get, post, put, patch, del, uploadFile, apiBaseUrl, wakeApi } from './api';
 import { compareQueueOrder } from './slotUtils';
 import { getAuth, hydrate, setUser } from './auth';
 import {
@@ -210,6 +210,56 @@ export async function getDoctorSlotDuration(doctorId: string): Promise<number> {
   } catch {
     return 30;
   }
+}
+
+export interface ScheduleDay {
+  dayOfWeek: number; // 0 = Sunday
+  startTime: string; // HH:MM
+  endTime: string;
+  slotDurationMinutes: number;
+}
+
+export interface DoctorBreak {
+  id: string;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+}
+
+export async function getDoctorSchedule(doctorId: string): Promise<ScheduleDay[]> {
+  const res = await get(`/doctors/${doctorId}/schedules`);
+  return (res.data || []).map((s: ScheduleDay) => ({
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    slotDurationMinutes: s.slotDurationMinutes,
+  }));
+}
+
+/** Replaces the doctor's weekly schedule (an empty list means no bookings at all). */
+export async function saveDoctorSchedule(doctorId: string, schedules: ScheduleDay[]) {
+  await put(`/doctors/${doctorId}/schedules`, { schedules });
+  durationCache.delete(doctorId);
+  availCache.clear();
+}
+
+export async function saveBookingWindow(doctorId: string, bookingWindowDays: number) {
+  await patch(`/doctors/${doctorId}`, { bookingWindowDays });
+}
+
+export async function getDoctorBreaks(doctorId: string): Promise<DoctorBreak[]> {
+  const res = await get(`/doctors/${doctorId}/breaks`);
+  return res.data || [];
+}
+
+export async function addDoctorBreak(doctorId: string, startDate: string, endDate: string, reason?: string) {
+  await post(`/doctors/${doctorId}/breaks`, { startDate, endDate, ...(reason ? { reason } : {}) });
+  availCache.clear();
+}
+
+export async function removeDoctorBreak(doctorId: string, breakId: string) {
+  await del(`/doctors/${doctorId}/breaks/${breakId}`);
+  availCache.clear();
 }
 
 export async function getQueueStats(doctorId: string, date: string): Promise<QueueStats> {

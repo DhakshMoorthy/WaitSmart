@@ -56,6 +56,8 @@ interface QueueConsoleProps {
   /** "Reset queue" cancels every waiting patient for the day: clinic staff only. */
   allowReset: boolean;
   headerExtra?: ReactNode;
+  /** Rendered under the doctor picker for the selected doctor (e.g. the availability editor). */
+  doctorExtra?: (doctor: Doctor) => ReactNode;
   onLogout: () => void;
 }
 
@@ -68,6 +70,7 @@ export default function QueueConsole({
   lockedToDoctor = false,
   allowReset,
   headerExtra,
+  doctorExtra,
   onLogout,
 }: QueueConsoleProps) {
   const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -279,6 +282,8 @@ export default function QueueConsole({
           Could not load your profile: {doctorsError}
         </p>
       )}
+
+      {selectedDoc && doctorExtra?.(selectedDoc)}
 
       <AdminCalendar
         selectedDate={selectedDate}

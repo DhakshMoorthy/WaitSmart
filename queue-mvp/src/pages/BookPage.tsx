@@ -61,7 +61,7 @@ export default function BookPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const dateOptions = useMemo(() => getDateOptions(3), []);
+  const dateOptions = useMemo(() => getDateOptions(doctor?.booking_window_days ?? 3), [doctor?.booking_window_days]);
 
   useEffect(() => {
     if (doctorId) getDoctor(doctorId).then(setDoctor);
@@ -259,13 +259,13 @@ export default function BookPage() {
           <Calendar className="h-3.5 w-3.5" />
           Select date
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className={dateOptions.length > 3 ? 'flex gap-2 overflow-x-auto pb-1' : 'grid grid-cols-3 gap-2'}>
           {dateOptions.map((d) => (
             <button
               key={d.iso}
               type="button"
               onClick={() => setSelectedDate(d.iso)}
-              className={`rounded-xl px-2 py-3 text-center transition ${
+              className={`rounded-xl px-2 py-3 text-center transition ${dateOptions.length > 3 ? 'w-24 shrink-0' : ''} ${
                 selectedDate === d.iso
                   ? 'bg-primary text-white shadow-md'
                   : 'border border-slate-200 bg-white text-slate-700 hover:border-primary'
