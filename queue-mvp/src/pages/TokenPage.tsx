@@ -23,8 +23,10 @@ import {
   subscribeQueue,
 } from '../lib/db';
 import { getAuth } from '../lib/auth';
+import { todayStr } from '../lib/dates';
 import {
   estimateWaitMinutes,
+  countPatientsAhead,
   formatDisplayDate,
   getWaitLabel,
   isSlotInFuture,
@@ -158,6 +160,19 @@ export default function TokenPage() {
     appointment.status === 'waiting' && appointment._rawStatus !== 'in-cabin';
   const sessionEnded = queue?.session_ended ?? false;
 
+  const patientsAhead = countPatientsAhead(
+    appointment.token,
+    allAppointments,
+    appointment.slot_time,
+    appointment.slot_time_24h,
+  );
+  const showAhead =
+    appointment.status === 'waiting' &&
+    appointment.date === todayStr() &&
+    !isYourTurn &&
+    !sessionEnded &&
+    allAppointments.length > 0;
+
   let waitDisplay = getWaitLabel(waitMinutes);
   if (isDone) waitDisplay = 'Done';
   else if (isCancelled) waitDisplay = 'Cancelled';
@@ -281,6 +296,18 @@ export default function TokenPage() {
         </div>
       </div>
 
+      {showAhead && (
+        <p
+          className={`rounded-2xl px-4 py-3 text-center text-sm font-semibold card-shadow ${
+            patientsAhead === 0 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'
+          }`}
+        >
+          {patientsAhead === 0
+            ? "You're next. Please stay close to the clinic."
+            : `${patientsAhead} ${patientsAhead === 1 ? 'patient' : 'patients'} ahead of you`}
+        </p>
+      )}
+
       <div className="flex justify-center">
         <div className="inline-flex flex-col items-center rounded-2xl border-2 border-primary bg-primary-light px-8 py-4">
           <Hash className="h-5 w-5 text-primary" />
@@ -328,6 +355,16 @@ export default function TokenPage() {
 
       {actionError && (
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{actionError}</p>
+      )}
+
+      {(isDone || isCancelled || appointment.status === 'no_show' || appointment.status === 'skipped') && (
+        <Link
+          to={`/book/${appointment.doctor_id}?clinic=${appointment.clinic_id}`}
+          className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Book again with {doctor.name}
+        </Link>
       )}
 
       {canCancel && (
