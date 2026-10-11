@@ -101,6 +101,7 @@ async function emitQueueUpdate(doctorId: string, date: string, tenantId: string)
       status: a.status,
       doctorNotes: a.doctorNotes,
       fileId: a.fileId,
+      serviceName: a.serviceName,
     })),
   };
 

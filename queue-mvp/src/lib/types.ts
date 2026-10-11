@@ -58,6 +58,8 @@ export interface Appointment {
   token: number;
   status: AppointmentStatus;
   notes?: string;
+  /** What the patient booked for (copied at booking time). */
+  service_name?: string;
   doctor_notes?: string;
   attachment_name?: string;
   attachment_data?: string;

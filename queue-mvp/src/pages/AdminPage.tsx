@@ -5,6 +5,7 @@ import { useStaffDoctors } from '../hooks/useStaffDoctors';
 import LoadingScreen from '../components/LoadingScreen';
 import AvailabilityPanel from '../components/AvailabilityPanel';
 import ClinicQrPanel from '../components/ClinicQrPanel';
+import ServicesPanel from '../components/ServicesPanel';
 import QueueConsole from '../components/QueueConsole';
 import StaffLoginCard from '../components/StaffLoginCard';
 
@@ -36,12 +37,15 @@ export default function AdminPage() {
       allowReset
       headerExtra={<ClinicQrPanel clinicNames={clinicNames} />}
       doctorExtra={(d) => (
-        <AvailabilityPanel
-          key={d.id}
-          doctorId={d.id}
-          doctorName={d.name}
-          bookingWindowDays={d.booking_window_days}
-        />
+        <div key={d.id} className="space-y-5">
+          <AvailabilityPanel doctorId={d.id} doctorName={d.name} bookingWindowDays={d.booking_window_days} />
+          <ServicesPanel
+            doctorId={d.id}
+            clinicId={d.clinic_id}
+            doctorName={d.name}
+            canAddClinicWide={true}
+          />
+        </div>
       )}
       onLogout={() => logoutAndRevoke()}
     />

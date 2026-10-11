@@ -84,6 +84,7 @@ export default function TrackPage() {
                   </p>
                   <p className="mt-1 text-xs text-slate-400">
                     {formatDisplayDate(apt.date)} • {apt.slot_time}
+                    {apt.service_name ? ` • ${apt.service_name}` : ''}
                   </p>
                 </div>
                 <span

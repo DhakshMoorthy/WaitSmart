@@ -4,6 +4,7 @@ export * from "./clinics.js";
 export * from "./doctors.js";
 export * from "./doctorSchedules.js";
 export * from "./doctorBreaks.js";
+export * from "./services.js";
 export * from "./slots.js";
 export * from "./appointments.js";
 export * from "./queue.js";

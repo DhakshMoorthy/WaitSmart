@@ -6,6 +6,7 @@ import { clinics } from "./clinics.js";
 import { slots } from "./slots.js";
 import { users } from "./users.js";
 import { files } from "./files.js";
+import { services } from "./services.js";
 
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "waiting",
@@ -38,6 +39,9 @@ export const appointments = pgTable(
     symptoms: text("symptoms"),
     doctorNotes: text("doctor_notes"),
     fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
+    /** What the patient booked for; the name is copied so history survives renaming / deleting the service. */
+    serviceId: uuid("service_id").references(() => services.id, { onDelete: "set null" }),
+    serviceName: text("service_name"),
     tokenNumber: integer("token_number").notNull(),
     status: appointmentStatusEnum("status").notNull().default("waiting"),
     /** Stamped by a DB trigger (migration 0005) when the patient goes in-cabin / is done. */

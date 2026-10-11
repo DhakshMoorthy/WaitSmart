@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.router.js";
 import { tenantRouter } from "./modules/tenant/tenant.router.js";
 import { clinicRouter } from "./modules/clinic/clinic.router.js";
+import { serviceRouter } from "./modules/service/service.router.js";
 import { doctorRouter } from "./modules/doctor/doctor.router.js";
 import { bookingRouter } from "./modules/booking/booking.router.js";
 import { queueRouter } from "./modules/queue/queue.router.js";
@@ -39,6 +40,7 @@ app.use("/auth", authRouter);
 app.use("/tenants", tenantRouter);
 app.use("/clinics", clinicRouter);
 app.use("/doctors", doctorRouter);
+app.use("/services", serviceRouter);
 app.use("/", bookingRouter); // GET /avail, POST /book
 app.use("/admin", queueRouter); // POST /admin/next
 app.use("/notifications", notificationRouter);

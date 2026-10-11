@@ -4,6 +4,7 @@ import {
   slots,
   appointments,
   doctors,
+  services,
   doctorSchedules,
   doctorBreaks,
   queueState,
@@ -216,6 +217,17 @@ async function bookInTx(
   if (!doctor || doctor.clinicId !== input.clinicId) {
     throw new AppError(400, "Doctor does not belong to this clinic", "INVALID_CLINIC");
   }
+  // Optional: what the visit is for. It must be one this doctor (or their whole clinic) actually offers.
+  let serviceName: string | null = null;
+  if (input.serviceId) {
+    const service = await tx.query.services.findFirst({
+      where: and(eq(services.id, input.serviceId), eq(services.tenantId, tenantId)),
+    });
+    if (!service || service.clinicId !== input.clinicId || (service.doctorId && service.doctorId !== input.doctorId)) {
+      throw new AppError(400, "This doctor does not offer that service", "INVALID_SERVICE");
+    }
+    serviceName = service.name;
+  }
   if (enforceWindow && slot.date > lastBookableDate(doctor.bookingWindowDays)) {
     throw new AppError(
       400,
@@ -258,6 +270,8 @@ async function bookInTx(
       patientPhone: input.patientPhone,
       symptoms: input.symptoms,
       fileId: input.fileId,
+      serviceId: input.serviceId ?? null,
+      serviceName,
       tokenNumber: maxToken + 1,
       status: "waiting",
     })
@@ -370,6 +384,7 @@ export async function rescheduleBooking(
       patientPhone: old.patientPhone ?? undefined,
       symptoms: old.symptoms ?? undefined,
       fileId: old.fileId ?? undefined,
+      serviceId: old.serviceId ?? undefined,
     }, actor.role === "patient");
   });
   emitBookingCreated(appointment, appointment.doctorId);

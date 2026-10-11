@@ -212,6 +212,35 @@ export async function getDoctorSlotDuration(doctorId: string): Promise<number> {
   }
 }
 
+export interface ClinicService {
+  id: string;
+  clinicId: string;
+  /** null = offered by every doctor of the clinic. */
+  doctorId: string | null;
+  name: string;
+  durationMinutes: number;
+}
+
+/** What a doctor offers: their own services plus the clinic-wide ones. */
+export async function getDoctorServices(doctorId: string): Promise<ClinicService[]> {
+  const res = await get('/services', { doctorId });
+  return res.data || [];
+}
+
+export async function addService(input: {
+  clinicId: string;
+  doctorId: string | null;
+  name: string;
+  durationMinutes: number;
+}) {
+  const res = await post('/services', input);
+  return res.data as ClinicService;
+}
+
+export async function removeService(serviceId: string) {
+  await del(`/services/${serviceId}`);
+}
+
 export interface ScheduleDay {
   dayOfWeek: number; // 0 = Sunday
   startTime: string; // HH:MM
@@ -438,8 +467,9 @@ export async function bookAppointment(input: {
   slotTime: string;
   notes?: string;
   fileId?: string;
+  serviceId?: string;
 }) {
-  const { doctorId, date, slotTime, name, clinicId, notes, phone, fileId } = input;
+  const { doctorId, date, slotTime, name, clinicId, notes, phone, fileId, serviceId } = input;
   invalidateAvailCache(doctorId, date);
   const avail = await fetchAvail(doctorId, date);
   const slots = avail.slots || [];
@@ -461,6 +491,7 @@ export async function bookAppointment(input: {
     patientPhone: phone || user?.phone || undefined,
     symptoms: notes || undefined,
     fileId: fileId || undefined,
+    serviceId: serviceId || undefined,
   });
 
   const appointment = mapAppointment(res.data, slot, slots.length);
