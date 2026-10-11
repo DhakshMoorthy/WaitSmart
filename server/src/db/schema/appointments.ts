@@ -40,6 +40,9 @@ export const appointments = pgTable(
     fileId: uuid("file_id").references(() => files.id, { onDelete: "set null" }),
     tokenNumber: integer("token_number").notNull(),
     status: appointmentStatusEnum("status").notNull().default("waiting"),
+    /** Stamped by a DB trigger (migration 0005) when the patient goes in-cabin / is done. */
+    calledAt: timestamp("called_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -262,6 +262,25 @@ export async function removeDoctorBreak(doctorId: string, breakId: string) {
   availCache.clear();
 }
 
+export interface AnalyticsDay {
+  date: string;
+  total: number;
+  completed: number;
+  noShow: number;
+  cancelled: number;
+  waiting: number;
+}
+
+export interface AnalyticsSummary extends AnalyticsDay {
+  avgConsultMinutes: number | null;
+  trend: AnalyticsDay[];
+}
+
+export async function getAnalyticsSummary(date: string, doctorId?: string): Promise<AnalyticsSummary> {
+  const res = await get('/analytics/summary', doctorId ? { date, doctorId } : { date });
+  return res.data;
+}
+
 export async function getQueueStats(doctorId: string, date: string): Promise<QueueStats> {
   const { stats } = await fetchDoctorDay(doctorId, date);
   return stats;

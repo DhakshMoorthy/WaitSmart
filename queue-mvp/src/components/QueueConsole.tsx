@@ -23,6 +23,7 @@ import {
 import { formatPhoneDisplay } from '../lib/phone';
 import type { Appointment, AppointmentStatus, Doctor, Queue } from '../lib/types';
 import AdminCalendar from './AdminCalendar';
+import DaySummary from './DaySummary';
 import LiveBadge from './LiveBadge';
 import {
   ChevronDown,
@@ -299,6 +300,12 @@ export default function QueueConsole({
           </span>
         )}
       </p>
+
+      <DaySummary
+        date={selectedDate}
+        doctorId={lockedToDoctor ? undefined : selectedDoctor || undefined}
+        refreshKey={appointments.map((a) => a._rawStatus ?? a.status).join(',')}
+      />
 
       {isHistoryView && (
         <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-center text-xs text-slate-600">

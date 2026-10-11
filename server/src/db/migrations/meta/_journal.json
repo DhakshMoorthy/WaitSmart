@@ -36,6 +36,13 @@
       "when": 1724000000000,
       "tag": "0004_booking_window",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1725000000000,
+      "tag": "0005_appointment_timing",
+      "breakpoints": true
     }
   ]
 }
