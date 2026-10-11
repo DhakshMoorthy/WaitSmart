@@ -128,6 +128,26 @@ export function estimateWaitMinutes(
   return queueWait;
 }
 
+/**
+ * How many people are still to be seen before this patient, in slot-time order (the order the doctor serves them):
+ * everyone waiting or in the cabin with an earlier slot (same slot: lower token).
+ */
+export function countPatientsAhead(
+  patientToken: number,
+  appointments: Appointment[],
+  slotTime?: string,
+  slotTime24h?: string,
+): number {
+  const myTime = resolveTime24(slotTime ?? '', slotTime24h);
+  return appointments.filter(
+    (a) =>
+      a.token !== patientToken &&
+      (a._rawStatus === 'waiting' || a._rawStatus === 'in-cabin') &&
+      (a.slot_time_24h || '') !== '' &&
+      (a.slot_time_24h < myTime || (a.slot_time_24h === myTime && a.token < patientToken)),
+  ).length;
+}
+
 export function formatWaitTime(minutes: number): string {
   if (minutes <= 0) return 'Now';
   if (minutes < 60) return `${minutes} min`;
