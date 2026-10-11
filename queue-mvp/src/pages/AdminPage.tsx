@@ -3,6 +3,7 @@ import { logoutAndRevoke } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useStaffDoctors } from '../hooks/useStaffDoctors';
 import LoadingScreen from '../components/LoadingScreen';
+import ClinicQrPanel from '../components/ClinicQrPanel';
 import QueueConsole from '../components/QueueConsole';
 import StaffLoginCard from '../components/StaffLoginCard';
 
@@ -32,6 +33,7 @@ export default function AdminPage() {
       clinicNames={clinicNames}
       doctorsError={error}
       allowReset
+      headerExtra={<ClinicQrPanel clinicNames={clinicNames} />}
       onLogout={() => logoutAndRevoke()}
     />
   );
